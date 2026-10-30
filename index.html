@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Последняя дамба — игра</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,Arial;color:#19313e;background:#edf2f3}
+#app{height:100%;display:flex;flex-direction:column}header{background:#102d3d;color:white;padding:11px 14px;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:17px;margin:0}header small{font-size:10px;color:#c4d8df}#map{flex:1;min-height:240px}
+.panel{background:#fff;padding:10px 12px;box-shadow:0 -2px 12px #1233}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.stat{background:#eff4f5;border-radius:8px;text-align:center;padding:6px 2px}.stat b{display:block;font-size:17px}.stat span{font-size:9px;color:#637783}
+.buttons{display:flex;flex-wrap:wrap;gap:6px}button{border:0;border-radius:8px;padding:9px 10px;background:#e7eff1;color:#173342;font-weight:650;font-size:12px}button.main{background:#087e8b;color:#fff}
+#status{font-size:11px;color:#455e6a;min-height:28px;margin:4px 0 7px}.note{font-size:9px;color:#71818a;line-height:1.35;margin-top:7px}
+.legend{background:white;padding:7px 9px;border-radius:7px;box-shadow:0 1px 7px #0002;font-size:11px}
+@media(min-width:800px){#app{max-width:1200px;height:96vh;margin:auto}header,.panel{padding:14px 20px}}
+</style></head>
+<body><div id="app">
+<header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Сценарий наводнения · западные Нидерланды</small></div><small>RANDSTAD<br>ПРОТОТИП 0.3</small></header>
+<div id="map"></div>
+<section class="panel">
+<div class="stats">
+<div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div>
+<div class="stat"><b id="water">0%</b><span>ЗАТОПЛЕНИЕ*</span></div>
+<div class="stat"><b id="evac">0</b><span>ЭВАКУИРОВАНО*</span></div>
+<div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
+<div id="status">Нажми на красный маркер прорыва на карте, затем запусти сценарий.</div>
+<div class="buttons"><button class="main" id="start">▶ Начать</button><button id="pause">Ⅱ Пауза</button><button id="repair">🛠 Укрепить −20</button><button id="evacuate">🚍 Эвакуация −15</button><button id="reset">↺ Сброс</button></div>
+<div class="note">* Условные игровые показатели. Это не прогноз и не инструмент оценки реального риска. Подложка — официальная топографическая карта BRT Kadaster/PDOK (CC-BY). Для карты требуется интернет. Распространение воды пока условное; расчёт по реальной цифровой модели высот AHN будет следующим этапом.</div>
+</section></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const map=L.map('map',{preferCanvas:true}).setView([52.08,4.55],8);
+const base=L.tileLayer('https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png',{minZoom:6,maxZoom:19,attribution:'© <a href="https://www.kadaster.nl">Kadaster</a> / <a href="https://www.pdok.nl">PDOK</a>'}).addTo(map);
+const pastel=L.tileLayer('https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/pastel/EPSG:3857/{z}/{x}/{y}.png',{minZoom:6,maxZoom:19,attribution:'© Kadaster / PDOK'});
+L.control.layers({'BRT — стандарт':base,'BRT — пастель':pastel}).addTo(map);
+const cities=[['Амстердам',52.3676,4.9041],['Харлем',52.3874,4.6462],['Лейден',52.1601,4.4970],['Гаага',52.0705,4.3007],['Роттердам',51.9244,4.4777],['Утрехт',52.0907,5.1214],['Алкмар',52.6324,4.7534],['Гауда',52.0116,4.7105]];
+cities.forEach(c=>L.circleMarker([c[1],c[2]],{radius:4,color:'#174e68',weight:1,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip(c[0]));
+const sites=[{name:'Побережье у Катвейка',lat:52.205,lon:4.395,desc:'Условный сценарий повреждения морской защиты.'},{name:'Южная Голландия',lat:51.98,lon:4.12,desc:'Условный сценарий аварии защитного участка.'},{name:'Nieuwe Waterweg',lat:51.96,lon:4.05,desc:'Условный сценарий у морского подхода к Роттердаму.'}];
+let selected=null,running=false,seconds=0,flood=0,people=0,money=100,timer=null,waterLayer=null;
+sites.forEach((s,i)=>L.circleMarker([s.lat,s.lon],{radius:8,color:'#9e2929',weight:2,fillColor:'#e34c45',fillOpacity:.95}).addTo(map).bindPopup('<b>'+s.name+'</b><br>'+s.desc+'<br><button onclick="selectSite('+i+')">Выбрать точку</button>'));
+window.selectSite=i=>{selected=sites[i];$('status').textContent='Выбрано: '+selected.name+'. Можно запускать сценарий.';map.closePopup()};
+const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Точка сценария<br><span style="color:#159bc4">●</span> Условная вода';return d};legend.addTo(map);
+function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('water').textContent=flood+'%';$('evac').textContent=people.toLocaleString('ru-RU');$('funds').textContent=money}
+function drawWater(){if(waterLayer)map.removeLayer(waterLayer);if(!selected||!flood)return;const k=flood/100,a=selected.lat,o=selected.lon;waterLayer=L.polygon([[a-.06*k,o-.14*k],[a+.1*k,o-.1*k],[a+.16*k,o+.04*k],[a+.07*k,o+.2*k],[a-.1*k,o+.18*k],[a-.15*k,o+.01*k]],{color:'#087eaa',weight:2,fillColor:'#20a8d4',fillOpacity:.28}).addTo(map)}
+function tick(){if(!running)return;seconds++;if(seconds%3===0){flood=Math.min(100,flood+2);money=Math.max(0,money-1);drawWater()}render();if(flood>=100){running=false;clearInterval(timer);$('status').textContent='Критическая стадия сценария (условная игровая модель).'}}
+$('start').onclick=()=>{if(!selected){$('status').textContent='Сначала выбери красный маркер на карте.';return}if(!running){running=true;timer=setInterval(tick,1000);$('status').textContent='Сценарий запущен. Укрепляй защиту и проводи эвакуацию.'}};
+$('pause').onclick=()=>{running=false;clearInterval(timer);$('status').textContent='Пауза.'};
+$('repair').onclick=()=>{if(money>=20){money-=20;flood=Math.max(0,flood-8);drawWater();$('status').textContent='Защита укреплена: условный уровень затопления снижен.'}else $('status').textContent='Недостаточно ресурсов.';render()};
+$('evacuate').onclick=()=>{if(money>=15){money-=15;people+=2500;$('status').textContent='Условно эвакуировано 2 500 человек.'}else $('status').textContent='Недостаточно ресурсов.';render()};
+$('reset').onclick=()=>{running=false;clearInterval(timer);seconds=0;flood=0;people=0;money=100;selected=null;if(waterLayer)map.removeLayer(waterLayer);render();$('status').textContent='Выбери красную точку прорыва.'};
+render();
+</script></body></html>
