@@ -178,7 +178,8 @@ function initializeFloodSimulation(){
  for(let row=0;row<h;row++)for(let col=0;col<w;col++){
   const i=row*w+col,z=grid[i];if(blockedCells.has(i)||polderCells.has(i)||!Number.isFinite(z)||z>=1e20)continue;
   const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
-  if(selected.active&&y>=breachY)continue;
+  // RD northing grows to the north: Waddenzee is north of Afsluitdijk, so the inflow source must be on that side.
+  if(selected.active&&y<=breachY)continue;
   const d=Math.hypot(x-breachX,y-breachY);if(d<best){best=d;source=i}
  }
  if(source<0)return false;
@@ -237,7 +238,7 @@ async function loadTerrain(){
  const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю цифровую модель высот AHN у PDOK…';
  try{
   const n=1000,half=10000;
-  let minX=145000,maxX=165000,minY=515000,maxY=535000,regionLabel='IJsselmeer / Breezanddijk';
+  let minX=133780,maxX=153780,minY=549243,maxY=569243,regionLabel='Waddenzee / Breezanddijk';
   if(selected){
    const [cx,cy]=rd(selected.lat,selected.lon);
    minX=Math.round(cx-half);maxX=Math.round(cx+half);
