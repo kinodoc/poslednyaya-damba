@@ -15,7 +15,7 @@ header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
 <div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span>ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span>УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
-<div id="status">Общая карта Нидерландов. Красные — Afsluitdijk, оранжевые — Дельта-проект, фиолетовые — исторические районы наводнений и ориентировочные точки риска.</div>
+<div id="status">Нажми на любую отмеченную точку: она выберется сразу. Для поддерживаемого сценария рельеф AHN загружается автоматически.</div>
 <div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="buildDam" disabled>＋ Построить дамбу</button><button id="reset">↺ Сброс</button></div>
 <div id="history1953" style="display:none;margin-top:10px;padding:10px;border:1px solid #725c48;border-radius:10px;background:#30291f">
  <div style="font-weight:750;color:#ffd99b;margin-bottom:5px">СЦЕНАРИЙ · НОЧЬ 31 ЯНВАРЯ — 1 ФЕВРАЛЯ 1953</div>
@@ -92,17 +92,22 @@ const lakeRing=[[53.065,5.34],[53.02,5.28],[52.96,5.18],[52.91,5.05],[52.82,5.02
 const lakeRD=lakeRing.map(p=>rd(p[0],p[1]));
 L.polyline([[52.927,5.03],[53.075,5.34]],{color:'#d49a35',weight:5,opacity:.9}).addTo(map).bindTooltip('Afsluitdijk — 32 км');
 L.polygon(lakeRing,{color:'#168fc0',weight:1,fillColor:'#168fc0',fillOpacity:.08,dashArray:'5 5'}).addTo(map).bindTooltip('IJsselmeer — условный контур водоёма');
-const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).bindPopup('<b>'+s.name+'</b><br><small>'+(s.history|| (s.kind==='historic'?'Исторический район: точка ориентировочная':'Возможная точка отказа сооружения'))+'</small><br><button onclick="choose('+i+')">Выбрать сценарий</button>'));
+const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).on('click',()=>window.choose(i)).bindTooltip(s.name));
 window.choose=i=>{
  selected=sites[i];map.closePopup();mission1953=null;$('history1953').style.display='none';
  if(is1953()){
   $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
   if(grid){grid=null;geoImage=null;origin=null;resolution=null;extent=null;blockedCells.clear();if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}}
   $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
-  $('status').textContent='Выбран район 1953 года: '+selected.name+'. Нажми «Загрузить рельеф AHN», чтобы получить отдельный участок высот.';
+  $('status').textContent='Выбран район 1953 года: '+selected.name+'. Автоматически загружаю локальный рельеф AHN…';
+  loadTerrain();
+ }else if(selected.active){
+  $('start').disabled=true;
+  $('status').textContent='Выбрана точка: '+selected.name+'. Автоматически загружаю рельеф AHN…';
+  loadTerrain();
  }else{
-  $('start').disabled=false;
-  $('status').textContent=selected.active?'Выбрана точка: '+selected.name+'. Доступен расчётный прототип IJsselmeer.':'Выбран сценарий: '+selected.name+'. Для этого района расчёт затопления по AHN пока не подключён.';
+  $('start').disabled=true;
+  $('status').textContent='Точка выбрана: '+selected.name+'. Для этого района пока нет подключённой модели затопления; запуск отключён, чтобы не показывать фиктивную симуляцию.';
  }
 };
 const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk<br><span style="color:#d88924">●</span> Дельта-проект<br><span style="color:#8b6bb1">●</span> Исторические районы / возможные точки<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
