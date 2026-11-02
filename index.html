@@ -3,18 +3,31 @@
 <title>Последняя дамба — модель рельефа</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,Arial;color:#19313e;background:#edf2f3}#app{height:100%;display:flex;flex-direction:column}
-header{background:#102d3d;color:#fff;padding:11px 14px;display:flex;justify-content:space-between;align-items:center}h1{font-size:17px;margin:0}header small{font-size:10px;color:#c4d8df}
-#map{flex:1;min-height:260px}.panel{background:#fff;padding:10px 12px;box-shadow:0 -2px 12px #1233}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.stat{background:#eff4f5;border-radius:8px;text-align:center;padding:6px 2px}.stat b{display:block;font-size:17px}.stat span{font-size:9px;color:#637783}
-.buttons{display:flex;flex-wrap:wrap;gap:6px}button{border:0;border-radius:8px;padding:9px 10px;background:#e7eff1;color:#173342;font-weight:650;font-size:12px}button.main{background:#087e8b;color:#fff}button:disabled{opacity:.5}
-#status{font-size:11px;color:#455e6a;min-height:28px;margin:4px 0 7px}.note{font-size:9px;color:#71818a;line-height:1.35;margin-top:7px}.legend{background:white;padding:7px 9px;border-radius:7px;box-shadow:0 1px 7px #0002;font-size:11px}
-@media(min-width:800px){#app{max-width:1200px;height:96vh;margin:auto}header,.panel{padding:14px 20px}}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;color:#dceaf0;background:#071923}#app{height:100%;display:flex;flex-direction:column;max-width:1500px;margin:auto;background:#0b202b;box-shadow:0 0 45px #0005}
+header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #31505c}h1{font-size:18px;letter-spacing:.12em;margin:0;font-weight:800}header small{font-size:10px;color:#a8c3ce;line-height:1.5;text-align:right}
+#map{flex:1;min-height:260px;background:#a9c5c9}.panel{background:linear-gradient(180deg,#102a37,#0c202b);padding:12px 14px;box-shadow:0 -5px 24px #06131c88;border-top:1px solid #31505c}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.stat{background:#173644;border:1px solid #2a4c5a;border-radius:10px;text-align:center;padding:8px 3px}.stat b{display:block;font-size:19px;color:#f2fbff;font-variant-numeric:tabular-nums}.stat span{font-size:9px;color:#9bb7c2;letter-spacing:.07em}
+.buttons{display:flex;flex-wrap:wrap;gap:7px}button{border:1px solid #355565;border-radius:8px;padding:10px 12px;background:#1a3a49;color:#e3f2f7;font-weight:650;font-size:12px;transition:background .15s,border-color .15s}button:hover:not(:disabled){background:#285366;border-color:#5c899b}button.main{background:#087e8b;border-color:#16a6b1;color:#fff}button.main:hover:not(:disabled){background:#0999a5}button:disabled{opacity:.38;cursor:not-allowed}
+#status{font-size:12px;color:#c2d7df;min-height:30px;margin:4px 0 8px;line-height:1.45}.note{font-size:10px;color:#829da8;line-height:1.45;margin-top:9px}.legend{background:#102c3a;color:#e2f0f5;padding:8px 10px;border:1px solid #365565;border-radius:8px;box-shadow:0 2px 12px #0004;font-size:11px;line-height:1.55}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#102b39;color:#e7f3f7}.leaflet-popup-content button{margin-top:6px}
+@media(min-width:800px){#app{height:100vh}header,.panel{padding:14px 22px}.panel{padding-bottom:16px}.stats{max-width:780px}.buttons{gap:9px}}
+@media(max-width:520px){h1{font-size:15px}.stats{gap:5px}.stat b{font-size:16px}.stat span{font-size:8px}.panel{padding:9px}.note{font-size:9px}}
 </style></head><body><div id="app">
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
 <div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span>ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span>УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
-<div id="status">Общая карта Нидерландов. Красные — Afsluitdijk, оранжевые — Дельта-проект, фиолетовые — исторические районы наводнений и ориентировочные точки риска.</div>
-<div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="reset">↺ Сброс</button></div>
+<div id="objective" style="font-size:11px;color:#f2d28a;margin:0 0 5px">Цель: продержаться 5 минут и не допустить затопления более 20 км².</div><div id="targetsStatus" style="font-size:10px;color:#a9c8d3;margin:0 0 8px">Защищаемые районы: Ден-Овер · Маккум · Медемблик · Энкхёйзен</div>
+<div id="status">Нажми на любую отмеченную точку: она выберется сразу. Для поддерживаемого сценария рельеф AHN загружается автоматически.</div>
+<div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="pump" disabled>💧 Откачать −25</button><button id="defendTarget" disabled>🛡 Защитить район −30</button><button id="evacuateTarget" disabled>🚨 Эвакуация −20</button><button id="buildDam" disabled>＋ Построить дамбу</button><button id="buildPolder" disabled>▱ Новый польдер</button><button id="drainPolder" disabled>💧 Осушить −30</button><button id="farmPolder" disabled>🌾 Сельхозугодья</button><button id="settlePolder" disabled>🏘 Поселение</button><button id="reset">↺ Сброс</button></div>
+<div id="history1953" style="display:none;margin-top:10px;padding:10px;border:1px solid #725c48;border-radius:10px;background:#30291f">
+ <div style="font-weight:750;color:#ffd99b;margin-bottom:5px">СЦЕНАРИЙ · НОЧЬ 31 ЯНВАРЯ — 1 ФЕВРАЛЯ 1953</div>
+ <div id="missionText" style="font-size:11px;line-height:1.45;color:#f0dfc8;margin-bottom:8px">Историческая реконструкция с альтернативными решениями игрока. Это не расчёт фактического затопления.</div>
+ <div class="buttons">
+  <button id="evacuate">🚨 Эвакуация −15</button>
+  <button id="ship">⚓ Судно к пролому −25</button>
+  <button id="reinforce">🛠 Аварийное укрепление −20</button>
+ </div>
+ <div id="missionScore" style="font-size:10px;color:#c9b99f;margin-top:7px">Готовность: 0 · Защита: 0</div>
+</div>
 <div class="note">* Оценка по AHN DTM с шагом около 100 м. Сценарий Breezanddijk условно подаёт воду в IJsselmeer; исторические точки показывают районы прошлых катастроф, а не точные координаты каждого пролома. Анимация шторма, ветра и нагонной волны иллюстративная. Реальные волновые поля, батиметрия, приливы, гидродинамика и локальные модели южных районов пока не подключены. Это игровой прототип, не прогноз. Данные высот: Rijkswaterstaat / PDOK.</div>
 </section></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,11 +35,12 @@ header{background:#102d3d;color:#fff;padding:11px 14px;display:flex;justify-cont
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+function isTiffBuffer(buffer){if(buffer.byteLength<4)return false;const b=new Uint8Array(buffer,0,4);return (b[0]===0x49&&b[1]===0x49&&(b[2]===0x2a||b[2]===0x2b)&&b[3]===0)||(b[0]===0x4d&&b[1]===0x4d&&b[2]===0&&(b[3]===0x2a||b[3]===0x2b))}
 // Dutch national grid (Rijksdriehoeksstelsel / EPSG:28992)
 proj4.defs('EPSG:28992','+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.4171,50.3319,465.5524,0.398957,-0.343988,1.8774,4.0725 +units=m +no_defs');
 const map=L.map('map',{preferCanvas:true}).setView([52.15,4.75],8);
 const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-const ahn=L.tileLayer.wms('https://service.pdok.nl/rws/ahn/wms/v1_0',{layers:'dtm_05m',format:'image/png',transparent:true,opacity:.55,attribution:'AHN © Rijkswaterstaat / PDOK'});
+const ahn=L.tileLayer.wms('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wms/v1_0',{layers:'dtm_05m',format:'image/png',transparent:true,opacity:.55,attribution:'AHN © Rijkswaterstaat / PDOK'});
 L.control.layers({'OpenStreetMap':osm},{'AHN — высоты':ahn}).addTo(map);
 const cities=[['Den Oever',52.927,5.03],['Breezanddijk',53.02,5.22],['Kornwerderzand',53.075,5.34],['Harlingen',53.174,5.42],['Makkum',53.055,5.4],['Enkhuizen',52.704,5.29],['Medemblik',52.771,5.105],['Lelystad',52.508,5.475],['Urk',52.663,5.601]];
 cities.forEach(c=>L.circleMarker([c[1],c[2]],{radius:4,color:'#174e68',weight:1,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip(c[0]));
@@ -55,27 +69,218 @@ const sites=[
 {name:'Ouderkerk aan den IJssel — прорыв 1953',lat:51.94,lon:4.64,kind:'historic'}
 ];
 let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=null,floodMask=null,waterOverlay=null,running=false,seconds=0,level=-0.2,funds=100,timer=null;
+let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMarker=null;
+let polderBuildMode=false,polderPoints=[],polderPreview=null,polderCells=new Set(),polders=[],selectedPolder=null,polderLayers=[];
+let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null,pumpUntil=0,floodedAreaKm2=0,gameFinished=false;
+const protectedTargets=[{name:'Den Oever',lat:52.927,lon:5.03,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:18000,evacuated:0,lost:0,everFlooded:false},{name:'Makkum',lat:53.055,lon:5.4,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Medemblik',lat:52.771,lon:5.105,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Enkhuizen',lat:52.704,lon:5.29,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity}];
+let selectedTarget=null,totalLost=0,totalEvacuated=0;
+function is1953(){return !!(selected&&selected.kind==='historic'&&selected.name.includes('1953'))}
+function updateMission1953(){
+ if(!mission1953)return;
+ $('missionScore').textContent='Эвакуация: '+mission1953.evac+'% · Спасательное судно: '+(mission1953.ship?'отправлено':'не отправлено')+' · Укрепление: '+(mission1953.reinforced?'выполнено':'не выполнено');
+ $('missionText').textContent=mission1953.finished?'Сценарий завершён. '+mission1953.result:'31 января: шторм и весенний прилив совпали. В районе Vlissingen зафиксирован максимум 4,55 м NAP. В воскресенье пришла вторая волна. Историческая справка; игровая миссия — альтернативный сценарий.';
+ $('evacuate').disabled=mission1953.finished||mission1953.evacuated;
+ $('ship').disabled=mission1953.finished||mission1953.ship;
+ $('reinforce').disabled=mission1953.finished||mission1953.reinforced;
+}
+function action1953(type,cost){
+ if(!mission1953||mission1953.finished)return;
+ if((type==='evacuate'&&mission1953.evacuated)||(type==='ship'&&mission1953.ship)||(type==='reinforce'&&mission1953.reinforced))return;
+ if(funds<cost){$('status').textContent='Недостаточно ресурсов: нужно '+cost+'.';return}
+ if(type==='evacuate'){mission1953.evacuated=true;mission1953.evac=60;mission1953.result='Организована эвакуация жителей из наиболее уязвимых зон.'}
+ if(type==='ship'){mission1953.ship=true;mission1953.result='Спасательное судно направлено к одному из изолированных населённых пунктов.'}
+ if(type==='reinforce'){mission1953.reinforced=true;mission1953.result='Аварийная команда укрепляет выбранный участок дамбы.'}
+ funds-=cost;render();updateMission1953();$('status').textContent=mission1953.result;
+}
+
 const lakeRing=[[53.065,5.34],[53.02,5.28],[52.96,5.18],[52.91,5.05],[52.82,5.02],[52.72,5.10],[52.69,5.28],[52.73,5.43],[52.84,5.52],[52.96,5.50],[53.04,5.43]];
 const lakeRD=lakeRing.map(p=>rd(p[0],p[1]));
 L.polyline([[52.927,5.03],[53.075,5.34]],{color:'#d49a35',weight:5,opacity:.9}).addTo(map).bindTooltip('Afsluitdijk — 32 км');
 L.polygon(lakeRing,{color:'#168fc0',weight:1,fillColor:'#168fc0',fillOpacity:.08,dashArray:'5 5'}).addTo(map).bindTooltip('IJsselmeer — условный контур водоёма');
-const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).bindPopup('<b>'+s.name+'</b><br><small>'+(s.history|| (s.kind==='historic'?'Исторический район: точка ориентировочная':'Возможная точка отказа сооружения'))+'</small><br><button onclick="choose('+i+')">Выбрать сценарий</button>'));
-window.choose=i=>{selected=sites[i];map.closePopup();$('start').disabled=!grid||!selected.active;$('status').textContent=selected.active?'Выбрана Breezanddijk: здесь подключён расчёт распространения воды по AHN.':'Для этой точки пока нет цифровой модели рельефа и расчёта затопления. Выберите Breezanddijk у Afsluitdijk — остальные маркеры пока только исторические/справочные.'};
+const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).on('click',()=>window.choose(i)).bindTooltip(s.name));
+window.choose=i=>{
+ // Переключение сценария полностью останавливает предыдущую миссию и её визуальные эффекты.
+ terrainRequestId++;
+ if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}
+ running=false;
+ if(timer){clearInterval(timer);timer=null}
+ stopVisualEvent();
+ clearBuiltDams();clearSourceMarker();resetProtectedTargets();
+ seconds=0;level=-0.2;funds=100;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;render();
+ grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;
+ $('pause').disabled=true;
+ $('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;$('load').disabled=false;
+ selected=sites[i];map.closePopup();
+ if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}
+ $('water').textContent='—';$('level').textContent='—';
+ $('history1953').style.display='none';
+ if(is1953()){
+  $('objective').textContent='Цель: выполнить спасательные операции за 3 минуты.';
+  $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
+  $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
+  $('status').textContent='Выбран район 1953 года: '+selected.name+'. Автоматически загружаю локальный рельеф AHN…';
+  loadTerrain();
+ }else if(selected.active){
+  $('start').disabled=true;
+  $('status').textContent='Выбрана точка: '+selected.name+'. Автоматически загружаю рельеф AHN…';
+  loadTerrain();
+ }else{
+  $('start').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;
+  grid=null;geoImage=null;origin=null;resolution=null;extent=null;
+  $('status').textContent='Точка выбрана: '+selected.name+'. Для этого района пока нет подключённой модели затопления; запуск отключён, чтобы не показывать фиктивную симуляцию.';
+ }
+};
 const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk<br><span style="color:#d88924">●</span> Дельта-проект<br><span style="color:#8b6bb1">●</span> Исторические районы / возможные точки<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
+function cellKey(c,r){return r*geoImage.getWidth()+c}
+function rasterLine(a,b){
+ let x0=a.col,y0=a.row,x1=b.col,y1=b.row,dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy,out=[];
+ while(true){if(x0>=0&&y0>=0&&x0<geoImage.getWidth()&&y0<geoImage.getHeight())out.push(cellKey(x0,y0));if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx}if(e2<=dx){err+=dx;y0+=sy}}
+ return out
+}
+function cancelDamBuild(){
+ buildMode=false;damStart=null;
+ if(damStartMarker){map.removeLayer(damStartMarker);damStartMarker=null}
+ $('buildDam').classList.remove('main')
+}
+function cancelPolderBuild(){polderBuildMode=false;polderPoints=[];if(polderPreview){map.removeLayer(polderPreview);polderPreview=null}map.doubleClickZoom.enable();$('buildPolder').classList.remove('main')}
+function clearBuiltDams(){
+ cancelDamBuild();cancelPolderBuild();blockedCells.clear();
+ damLayers.forEach(layer=>map.removeLayer(layer));damLayers=[];
+ polders.forEach(p=>{if(p.marker)map.removeLayer(p.marker)});polderLayers.forEach(layer=>map.removeLayer(layer));polderLayers=[];polderCells.clear();polders=[];selectedPolder=null;updatePolderButtons();
+}
+function clearSourceMarker(){if(sourceMarker){map.removeLayer(sourceMarker);sourceMarker=null}}
+function resetProtectedTargets(){selectedTarget=null;totalLost=0;totalEvacuated=0;for(const t of protectedTargets){t.status='safe';t.distance=Infinity;t.defenseUntil=0;t.protectionLevel=-Infinity;t.evacuated=0;t.lost=0;t.everFlooded=false;if(t.marker){t.marker.setStyle({color:'#65b98a',fillColor:'#65b98a',weight:2});t.marker.setTooltipContent(t.name+' · район защищён')}if(t.zone)t.zone.setStyle({color:'#65b98a',opacity:.35,fillOpacity:.025})}updateTargetsStatus()}
+function updateTargetsStatus(){const threatened=protectedTargets.filter(t=>t.status==='threat').length,flooded=protectedTargets.filter(t=>t.status==='flooded').length;$('targetsStatus').textContent='Районы: '+protectedTargets.map(t=>t.name+' — '+(t.status==='flooded'?'затоплен':t.status==='threat'?'угроза':t.defenseUntil>seconds?'укреплён':'защищён')).join(' · ')+' | Угроза: '+threatened+' · Затоплено: '+flooded+' · Вывезено: '+totalEvacuated.toLocaleString('ru-RU')+' · Потери: '+totalLost.toLocaleString('ru-RU')+' · Выбран: '+(selectedTarget?selectedTarget.name:'нет');$('defendTarget').disabled=!running||gameFinished||!selectedTarget||funds<30||selectedTarget.defenseUntil>seconds;$('evacuateTarget').disabled=!running||gameFinished||!selectedTarget||funds<20||selectedTarget.evacuated>=100||selectedTarget.everFlooded}
+function assessProtectedTargets(mask){if(!grid||!origin||!resolution)return 0;const w=geoImage.getWidth(),coords=protectedTargets.map(t=>rd(t.lat,t.lon));for(const t of protectedTargets)t.distance=Infinity;for(let i=0;i<mask.length;i++){if(!mask[i])continue;const col=i%w,row=(i/w)|0,x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);for(let k=0;k<protectedTargets.length;k++){const d=Math.hypot(x-coords[k][0],y-coords[k][1]);if(d<protectedTargets[k].distance)protectedTargets[k].distance=d}}let flooded=0;for(const t of protectedTargets){const old=t.status;const shielded=t.defenseUntil>seconds&&level<=t.protectionLevel;t.status=t.everFlooded?'flooded':shielded?'safe':t.distance<=150?'flooded':t.distance<=600?'threat':'safe';if(t.status==='flooded'&&!t.everFlooded){t.everFlooded=true;t.lost=Math.round(t.population*(1-t.evacuated/100));totalLost+=t.lost}if(t.status==='flooded')flooded++;if(t.marker){const color=t.status==='flooded'?'#e34c45':t.status==='threat'?'#e5a43b':t.defenseUntil>seconds?'#55c7e8':'#65b98a';t.marker.setStyle({color,fillColor:color,weight:t===selectedTarget?4:2});if(old!==t.status||t.defenseUntil>seconds)t.marker.setTooltipContent(t.name+' · '+(t.status==='flooded'?'затоплен':t.status==='threat'?'угроза':t.defenseUntil>seconds?'аварийная защита':'район защищён'))}if(t.zone){const color=t.status==='flooded'?'#e34c45':t.status==='threat'?'#e5a43b':'#65b98a';t.zone.setStyle({color,fillColor:color,opacity:.55,fillOpacity:t.status==='safe'?.025:.09})}}updateTargetsStatus();return flooded}
+protectedTargets.forEach(t=>{t.zone=L.circle([t.lat,t.lon],{radius:600,color:'#65b98a',weight:1,dashArray:'4 5',opacity:.35,fillColor:'#65b98a',fillOpacity:.025,interactive:false}).addTo(map);t.marker=L.circleMarker([t.lat,t.lon],{radius:6,color:'#65b98a',weight:2,fillColor:'#65b98a',fillOpacity:1}).addTo(map).bindTooltip(t.name+' · район защищён').on('click',e=>{L.DomEvent.stopPropagation(e);selectProtectedTarget(t)})});
+function selectProtectedTarget(target){selectedTarget=target;protectedTargets.forEach(t=>{if(t.marker)t.marker.setStyle({weight:t===target?4:2})});updateTargetsStatus();$('status').textContent='Выбран '+target.name+' · жителей: '+target.population.toLocaleString('ru-RU')+' · эвакуировано: '+target.evacuated+'% · потери: '+target.lost.toLocaleString('ru-RU')+'. '+(target.everFlooded?'Район затоплен, эвакуация завершена.':'Можно вывезти ещё до 35% жителей за 20 ресурсов.')}
 function inLake(x,y){let inside=false;for(let i=0,j=lakeRD.length-1;i<lakeRD.length;j=i++){const a=lakeRD[i],b=lakeRD[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
-function floodFromLake(waterLevel){const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;const valid=i=>Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;for(let r=0;r<h;r++){for(let c=0;c<w;c++){const i=r*w+c;if(!valid(i))continue;const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);if(inLake(x-resolution[0],y)||inLake(x+resolution[0],y)||inLake(x,y-resolution[1])||inLake(x,y+resolution[1])){mask[i]=1;queue[tail++]=i}}}
-while(head<tail){const p=queue[head++],c=p%w,r=(p/w)|0,ns=[c>0?p-1:-1,c<w-1?p+1:-1,r>0?p-w:-1,r<h-1?p+w:-1];for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}}return mask}
-function drawWater(){if(!grid||!selected)return;floodMask=floodFromLake(level);const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=0;im.data[p+1]=145;im.data[p+2]=220;im.data[p+3]=190;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
-const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м'}
-async function loadTerrain(){const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю фрагмент AHN DTM у PDOK…';try{
-const minX=115000,maxX=180000,minY=515000,maxY=580000,n=650;
-const u=new URL('https://service.pdok.nl/rws/ahn/wcs/v1_0');u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
-const response=await fetch(u);if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);const buffer=await response.arrayBuffer();const tiff=await GeoTIFF.fromArrayBuffer(buffer);geoImage=await tiff.getImage();grid=await geoImage.readRasters({interleave:true});origin=geoImage.getOrigin();resolution=geoImage.getResolution();extent=geoImage.getBoundingBox();
-$('status').textContent='Рельеф загружен: '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Выбери красную точку прорыва.';$('start').disabled=false;$('repair').disabled=false;ahn.addTo(map);map.fitBounds([[51.25,3.1],[53.7,6.2]]);
-}catch(e){console.error(e);$('status').textContent='Не удалось получить высотный GeoTIFF: '+e.message+'. Возможно, PDOK блокирует запрос из браузера (CORS); потребуется подготовить файл рельефа отдельно.';b.disabled=false}}
+function floodFromLake(waterLevel){
+ const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);
+ let head=0,tail=0;
+ const valid=i=>!blockedCells.has(i)&&!polderCells.has(i)&&Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;
+ // Стартуем в ближайшей действительной ячейке AHN к точке условного пролома.
+ // Далее вода проходит только по соседним ячейкам ниже заданного уровня.
+ const [breachX,breachY]=rd(selected.lat,selected.lon);
+ let source=floodSourceIndex,bestDistance=Infinity;
+ if(source!==null&&(blockedCells.has(source)||polderCells.has(source)))source=null;
+ if(source===null){
+  let best=1500;
+  for(let r=0;r<h;r++)for(let c=0;c<w;c++){
+   const i=r*w+c;
+   if(blockedCells.has(i)||polderCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
+   const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);
+   // Breezanddijk: IJsselmeer lies south of the Afsluitdijk (lower RD Y).
+   // Exclude the Wadden Sea side when selecting the flood source.
+   if(y>=breachY)continue;
+   const distance=Math.hypot(x-breachX,y-breachY);
+   if(distance<best){best=distance;bestDistance=distance;source=i}
+  }
+  floodSourceIndex=source;
+ }else{
+  const col=source%w,row=(source/w)|0;
+  const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+  bestDistance=Math.hypot(x-breachX,y-breachY);
+ }
+ if(source===null||source<0)return {mask,sourceIndex:null,sourceDistance:null,sourceHeight:null,count:0};
+ const sourceHeight=grid[source];
+ mask[source]=1;queue[tail++]=source;
+ while(head<tail){
+  const p=queue[head++],col=p%w,row=(p/w)|0;
+  const ns=[col>0?p-1:-1,col<w-1?p+1:-1,row>0?p-w:-1,row<h-1?p+w:-1];
+  for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}
+ }
+ return {mask,sourceIndex:source,sourceDistance:bestDistance,sourceHeight,count:tail}
+}
+function drawWater(){if(!grid||!selected)return;const flood=floodFromLake(level);floodMask=flood.mask;assessProtectedTargets(floodMask);const w=geoImage.getWidth(),h=geoImage.getHeight(),displayMask=floodMask.slice(),canvas=document.createElement('canvas');for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<displayMask.length;i++){const p=i*4;if(displayMask[i]){im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;if(floodMask[i])count++}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
+const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
+ if(flood.sourceIndex===null){clearSourceMarker();$('status').textContent='Не найдено действительных ячеек AHN в радиусе 1,5 км от точки прорыва со стороны IJsselmeer. Источник воды не создан.'}
+ else{
+  const col=flood.sourceIndex%w,row=(flood.sourceIndex/w)|0,x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+  const ll=proj4('EPSG:28992','EPSG:4326',[x,y]);
+  const label='Источник AHN · '+Math.round(flood.sourceDistance)+' м от точки прорыва · '+flood.sourceHeight.toFixed(2)+' м NAP';
+  if(sourceMarker){sourceMarker.setLatLng([ll[1],ll[0]]);sourceMarker.setTooltipContent(label)}
+  else sourceMarker=L.circleMarker([ll[1],ll[0]],{radius:7,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map).bindTooltip(label);
+  if(count===1)$('status').textContent='Источник AHN найден в '+Math.round(flood.sourceDistance)+' м от точки прорыва (высота '+flood.sourceHeight.toFixed(2)+' м NAP), но соседних ячеек ниже уровня воды '+level.toFixed(2)+' м NAP нет. Распространение не началось.';
+  else $('status').textContent='Источник воды отмечен жёлтым маркером. Расстояние '+Math.round(flood.sourceDistance)+' м; высота '+flood.sourceHeight.toFixed(2)+' м NAP; затоплено ячеек '+count+'.';
+ }
+}
+async function loadTerrain(){
+ if(terrainAbortController)terrainAbortController.abort();
+ const controller=new AbortController();terrainAbortController=controller;
+ const requestId=++terrainRequestId;let timedOut=false;
+ const timeoutId=setTimeout(()=>{timedOut=true;controller.abort()},45000);
+ const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю цифровую модель высот AHN у PDOK…';
+ try{
+  const n=650,half=32500;
+  let minX=115000,maxX=180000,minY=515000,maxY=580000,regionLabel='IJsselmeer / Breezanddijk';
+  if(is1953()){
+   const [cx,cy]=rd(selected.lat,selected.lon);
+   minX=Math.round(cx-half);maxX=Math.round(cx+half);
+   minY=Math.round(cy-half);maxY=Math.round(cy+half);
+   regionLabel='локальный участок Зеландии у '+selected.name.split(' — ')[0];
+  }
+  const u=new URL('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0');
+  u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');
+  u.searchParams.set('CoverageID','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
+  u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
+  u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
+  const response=await fetch(u,{signal:controller.signal});
+  if(requestId!==terrainRequestId)return;
+  if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
+  const contentType=(response.headers.get('content-type')||'').toLowerCase();
+  if(contentType.includes('xml')||contentType.includes('text')){
+   const detail=(await response.text()).slice(0,500).replace(/\s+/g,' ');
+   throw Error('PDOK вернул не GeoTIFF ('+contentType+'): '+detail);
+  }
+  const buffer=await response.arrayBuffer();
+  if(buffer.byteLength<1024)throw Error('PDOK вернул подозрительно маленький файл: '+buffer.byteLength+' байт');
+  if(buffer.byteLength>32*1024*1024)throw Error('PDOK вернул слишком большой файл: '+(buffer.byteLength/1048576).toFixed(1)+' МБ; ожидался растр 650 × 650.');
+  if(!isTiffBuffer(buffer))throw Error('Ответ PDOK не имеет заголовка TIFF. Проверь ответ сервиса и CORS.');
+  const tiff=await GeoTIFF.fromArrayBuffer(buffer);
+  if(requestId!==terrainRequestId)return;
+  if(controller.signal.aborted)throw Object.assign(new Error('Загрузка отменена'),{name:'AbortError'});
+  const nextImage=await tiff.getImage();
+  if(requestId!==terrainRequestId)return;
+  if(controller.signal.aborted)throw Object.assign(new Error('Загрузка отменена'),{name:'AbortError'});
+  if(nextImage.getSamplesPerPixel()!==1)throw Error('Ожидался одноканальный растр высот, получено каналов: '+nextImage.getSamplesPerPixel());
+  const nextGrid=await nextImage.readRasters({interleave:true,signal:controller.signal});
+  if(requestId!==terrainRequestId)return;
+  const nextOrigin=nextImage.getOrigin(),nextResolution=nextImage.getResolution(),nextExtent=nextImage.getBoundingBox();
+  const width=nextImage.getWidth(),height=nextImage.getHeight();
+  if(width!==n||height!==n)throw Error('Неверный размер растра: '+width+' × '+height+', ожидалось '+n+' × '+n);
+  if(nextGrid.length!==width*height)throw Error('Размер массива высот не совпадает с размером растра');
+  if(!nextOrigin||!nextResolution||!nextExtent||![...nextOrigin,...nextResolution,...nextExtent].every(Number.isFinite))throw Error('GeoTIFF содержит некорректную геопривязку');
+  if(nextResolution[0]<=0||nextResolution[1]>=0)throw Error('Неподдерживаемая ориентация растра: ожидается X вправо и Y вниз');
+  const expectedMaxX=nextOrigin[0]+width*nextResolution[0],expectedMinY=nextOrigin[1]+height*nextResolution[1];
+  const geoTolerance=Math.max(Math.abs(nextResolution[0]),Math.abs(nextResolution[1]))*1.1;
+  if(Math.abs(nextExtent[0]-nextOrigin[0])>geoTolerance||Math.abs(nextExtent[3]-nextOrigin[1])>geoTolerance||Math.abs(nextExtent[2]-expectedMaxX)>geoTolerance||Math.abs(nextExtent[1]-expectedMinY)>geoTolerance)throw Error('Границы GeoTIFF не согласуются с origin, resolution и размером растра');
+  let validCells=0;
+  for(let i=0;i<nextGrid.length;i++)if(Number.isFinite(nextGrid[i])&&nextGrid[i]<1e20)validCells++;
+  if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
+  geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;floodSourceIndex=null;updatePolderButtons();
+  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Для сценария 1953 рельеф пока справочный: гидрологическая модель Зеландии не подключена.';
+  if(is1953()){
+   // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
+   $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
+  }else{
+   $('start').disabled=false;$('repair').disabled=false;$('pump').disabled=false;$('buildDam').disabled=false;
+  }
+  ahn.addTo(map);
+  if(is1953())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
+  else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
+ }catch(e){
+  if(requestId!==terrainRequestId)return;
+  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
+  b.disabled=false;
+ }finally{
+  clearTimeout(timeoutId);
+  if(terrainAbortController===controller)terrainAbortController=null;
+ }
+}
 
 let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null;
 function startVisualEvent(){
@@ -100,12 +305,146 @@ function stopVisualEvent(){
  if(breachPulse){map.removeLayer(breachPulse);breachPulse=null}
 }
 
-function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds}
-function tick(){if(!running)return;seconds++;if(selected&&selected.active){level+=.01;drawWater()}render();if(funds>0&&seconds%10===0)funds--;if(seconds%15===0&&selected&&selected.active)$('status').textContent='Вода распространяется по низким участкам, связанным с IJsselmeer. Скорость игровая; заливка пересчитывается по высотам AHN.'}
+function updateObjective(){if(gameFinished)return;const progress=Math.min(100,seconds/300*100);$('objective').textContent='Цель: пережить шторм · '+Math.floor(progress)+'% · волна '+(Math.floor(seconds/90)+1)+'/4 · предел 20 км² · не потерять 2 района'+(pumpUntil>seconds?' · насос работает':'')+(repairUntil>seconds?' · укрепление держится':'')}
+function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds;updateObjective();updatePolderButtons()}
+function finishStorm(won){gameFinished=true;running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('pause').disabled=true;$('start').disabled=true;const report=' Эвакуировано: '+totalEvacuated.toLocaleString('ru-RU')+' жителей · Потери: '+totalLost.toLocaleString('ru-RU')+'.';$('status').textContent=(won?'ПОБЕДА! Дамба выдержала шторм.':'ПОРАЖЕНИЕ. Защитная линия не справилась с водой.')+report;$('objective').textContent=(won?'Шторм пережит за 5 минут. Победа!':'Защитная линия прорвана. Игра окончена.')+report}
+function tick(){
+ if(!running)return;seconds++;updatePolders();
+ if(selected&&selected.active){
+  const surge=(seconds%90)<25?0.0022:0.0007;
+  if(seconds<=pumpUntil)level=Math.max(-0.2,level-0.0014);
+  else if(seconds>repairUntil)level+=surge;
+  drawWater();
+  if(floodedAreaKm2>=20||level>=0.55||protectedTargets.filter(t=>t.status==='flooded').length>=2){finishStorm(false);$('status').textContent=protectedTargets.filter(t=>t.status==='flooded').length>=2?'ПОРАЖЕНИЕ: затоплены два защищаемых населённых пункта.':'Защитная линия не справилась с водой.';render();return}
+  if(seconds>=300){finishStorm(true);render();return}
+ }
+ if(mission1953&&!mission1953.finished&&seconds>=180){
+  mission1953.finished=true;
+  const score=mission1953.evac+(mission1953.ship?35:0)+(mission1953.reinforced?25:0);
+  mission1953.result=score>=60?'Успех: действия игрока заметно снизили последствия в выбранном игровом сценарии.':'Частичный успех: ресурсов и времени не хватило, чтобы защитить все участки.';
+  updateMission1953();$('status').textContent=mission1953.result;running=false;clearInterval(timer);timer=null;$('pause').disabled=true;
+ }
+ if(funds>0&&seconds%10===0)funds--;
+ if(seconds%30===0){
+  let income=0;
+  for(const p of polders)if(p.drained&&p.use){
+   const rate=p.use==='farm'?3:4;
+   income+=Math.max(1,Math.ceil(p.area*rate));
+  }
+  if(income>0)funds+=income;
+ }
+ if(mission1953&&!mission1953.finished&&seconds%30===0){
+  const phase=Math.ceil(seconds/30);
+  const phases=['Шторм достигает побережья Зеландии.','Первые дамбы не выдерживают нагонной воды.','Вода распространяется по низким польдерам.','Прилив достигает исторического максимума около 03:24.','Воскресенье: в сценарии развивается вторая волна.','Последний этап: оцениваем эвакуацию и аварийные работы.'];
+  $('status').textContent='Фаза '+phase+'/6 · '+phases[phase-1]+' До завершения: '+(180-seconds)+' сек.';
+ }
+ else if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.';
+ render();
+}
 $('load').onclick=loadTerrain;
-$('start').onclick=()=>{if(!grid){$('status').textContent='Сначала загрузи рельеф.';return}if(!selected){$('status').textContent='Выбери точку прорыва на карте.';return}if(!selected.active){$('status').textContent='Расчёт затопления пока доступен только для Breezanddijk.';return}if(!running){level=-0.1;running=true;timer=setInterval(tick,1000);$('pause').disabled=false;$('status').textContent='Прорыв у Breezanddijk открыт. Синяя область показывает реальные ячейки AHN ниже уровня воды, связанные с IJsselmeer.';drawWater()}};
-$('pause').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();$('status').textContent='Пауза.'};
-$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();seconds=0;level=0;funds=100;selected=null;if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('evacuate').onclick=()=>action1953('evacuate',15);
+$('ship').onclick=()=>action1953('ship',25);
+$('reinforce').onclick=()=>action1953('reinforce',20);
+
+
+function updatePolderButtons(){
+ const ready=!!selectedPolder;
+ $('drainPolder').disabled=!ready||!running||selectedPolder.drained||selectedPolder.draining||funds<30;
+ $('farmPolder').disabled=!ready||!selectedPolder.drained||!!selectedPolder.use;
+ $('settlePolder').disabled=!ready||!selectedPolder.drained||!!selectedPolder.use;
+ $('buildPolder').disabled=!grid;
+}
+function pointInPolygon(x,y,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
+function finishPolder(){
+ if(polderPoints.length<3){$('status').textContent='Для польдера нужно минимум три точки контура.';return}
+ const ring=polderPoints.map(ll=>rd(ll.lat,ll.lng)),cells=[],boundary=new Set(),w=geoImage.getWidth(),h=geoImage.getHeight();
+ const vertices=polderPoints.map(ll=>indexAt(ll.lat,ll.lng));
+ if(vertices.some(p=>p.col<0||p.row<0||p.col>=w||p.row>=h)){$('status').textContent='Контур должен полностью находиться внутри загруженной области AHN.';cancelPolderBuild();return}
+ for(let i=0;i<ring.length;i++){
+  const line=rasterLine(vertices[i],vertices[(i+1)%ring.length]);
+  if(line.length<2||line.some(k=>blockedCells.has(k)||polderCells.has(k))){$('status').textContent='Контур пересекает существующую дамбу или польдер. Выбери свободный участок.';cancelPolderBuild();return}
+  line.forEach(k=>boundary.add(k));
+ }
+ let sum=0,high=0;
+ for(let row=0;row<h;row++)for(let col=0;col<w;col++){const i=row*w+col;if(boundary.has(i)||blockedCells.has(i)||polderCells.has(i))continue;const z=grid[i];if(!Number.isFinite(z)||z>=1e20)continue;const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);if(pointInPolygon(x,y,ring)){cells.push(i);sum+=z;if(z>2.5)high++}}
+ const area=cells.length*resolution[0]*Math.abs(resolution[1])/1e6,avg=sum/Math.max(1,cells.length),perimeter=ring.reduce((v,a,i)=>v+Math.hypot(a[0]-ring[(i+1)%ring.length][0],a[1]-ring[(i+1)%ring.length][1]),0)/1000,cost=25+Math.ceil(area*2)+Math.ceil(perimeter);
+ if(area<0.15||cells.length<15){$('status').textContent='Участок слишком мал или на нём недостаточно данных AHN.';cancelPolderBuild();return}
+ if(avg>2.5||high/cells.length>.35){$('status').textContent='Место плохо подходит для польдера: участок слишком высокий.';cancelPolderBuild();return}
+ if(funds<cost){$('status').textContent='Для контура польдера нужно '+cost+' ресурсов, сейчас '+funds+'.';cancelPolderBuild();return}
+ boundary.forEach(i=>blockedCells.add(i));cells.forEach(i=>polderCells.add(i));
+ const obj={cells,area,avg,perimeter,drained:false,draining:false,drainSeconds:0,use:null,layer:null,marker:null};
+ const layer=L.polygon(polderPoints,{color:'#e8bd55',weight:3,fillColor:'#168fc0',fillOpacity:.22}).addTo(map);
+ layer.bindTooltip('Новый польдер · '+area.toFixed(1)+' км² · не осушен').on('click',()=>{selectedPolder=obj;updatePolderButtons();$('status').textContent='Выбран польдер '+area.toFixed(1)+' км². Средняя высота '+avg.toFixed(2)+' м NAP. Для получения земли начни осушение.'});
+ obj.layer=layer;polders.push(obj);polderLayers.push(layer);selectedPolder=obj;cancelPolderBuild();render();drawWater();$('status').textContent='Контур польдера построен: '+area.toFixed(1)+' км², периметр '+perimeter.toFixed(1)+' км. Внутри контура пока вода. Осушение доступно во время игры.';
+}
+function updatePolders(){
+ let changed=false;
+ for(const p of polders)if(p.draining){p.drainSeconds++;if(p.drainSeconds>=60){p.draining=false;p.drained=true;p.layer.setStyle({color:'#79c77b',fillColor:'#69a96c',fillOpacity:.32});p.layer.setTooltipContent('Осушенный польдер · '+p.area.toFixed(1)+' км²');changed=true}}
+ if(changed){drawWater();$('status').textContent='Польдер осушен! Получено '+polders.filter(p=>p.drained).slice(-1)[0].area.toFixed(1)+' км² новой суши. Теперь можно освоить участок.'}
+ updatePolderButtons();
+}
+function setPolderUse(kind){
+ if(!selectedPolder||!selectedPolder.drained||selectedPolder.use)return;
+ const p=selectedPolder;p.use=kind;p.layer.setStyle(kind==='farm'?{color:'#b5a34b',fillColor:'#b5a34b',fillOpacity:.42}:{color:'#d5d2c8',fillColor:'#b7a58a',fillOpacity:.48});
+ const center=p.layer.getBounds().getCenter(),icon=kind==='farm'?'🌾':'🏘';
+ p.marker=L.marker(center,{interactive:false,icon:L.divIcon({className:'polder-use',html:'<div style="font-size:23px;text-shadow:0 1px 3px #fff">'+icon+'</div>',iconSize:[28,28],iconAnchor:[14,14]})}).addTo(map);
+ const income=Math.max(1,Math.ceil(p.area*(kind==='farm'?3:4)));
+ p.layer.setTooltipContent((kind==='farm'?'Сельхозугодья':'Новое поселение')+' · '+p.area.toFixed(1)+' км² · +'+income+' ресурсов / 30 сек.');
+ $('status').textContent=(kind==='farm'?'Новая земля отведена под сельское хозяйство.':'На осушенной земле основано новое поселение.')+' Доход: +'+income+' ресурсов каждые 30 секунд.';updatePolderButtons();
+}
+$('buildPolder').onclick=()=>{
+ if(!grid){$('status').textContent='Сначала загрузи рельеф AHN.';return}
+ if(polderBuildMode){cancelPolderBuild();$('status').textContent='Разметка польдера отменена.';return}
+ cancelDamBuild();polderBuildMode=true;polderPoints=[];map.doubleClickZoom.disable();$('buildPolder').classList.add('main');
+ $('status').textContent='Отметь 3 или более точек вокруг низменного участка. Двойной щелчок замкнёт контур и построит дамбу.';
+};
+map.on('dblclick',()=>{if(polderBuildMode)finishPolder()});
+$('drainPolder').onclick=()=>{
+ if(!selectedPolder||!running||selectedPolder.drained||selectedPolder.draining)return;
+ if(funds<30){$('status').textContent='Для откачки польдера нужно 30 ресурсов.';return}
+ funds-=30;selectedPolder.draining=true;selectedPolder.drainSeconds=0;
+ selectedPolder.layer.setStyle({color:'#e8bd55',fillColor:'#168fc0',fillOpacity:.12});
+ $('status').textContent='Насосная станция откачивает воду из польдера. Осушение займёт 60 игровых секунд.';render();
+};
+$('farmPolder').onclick=()=>setPolderUse('farm');
+$('settlePolder').onclick=()=>setPolderUse('town');
+$('buildDam').onclick=()=>{
+ if(!grid){$('status').textContent='Сначала загрузи рельеф AHN.';return}
+ if(buildMode){cancelDamBuild();$('status').textContent='Строительство дамбы отменено.';return}
+ buildMode=true;damStart=null;$('buildDam').classList.add('main');
+ $('status').textContent='Отметь на карте начало и конец дамбы. Шаг расчётной сетки — около 100 м.';
+};
+map.on('click',e=>{
+ if(polderBuildMode&&grid){polderPoints.push(e.latlng);if(polderPreview)map.removeLayer(polderPreview);polderPreview=L.polyline(polderPoints,{color:'#e8bd55',weight:3,dashArray:'6 5'}).addTo(map);$('status').textContent='Точек контура: '+polderPoints.length+'. Двойной щелчок — завершить польдер.';return}
+ if(!buildMode||!grid)return;
+ const p=indexAt(e.latlng.lat,e.latlng.lng);
+ if(p.col<0||p.row<0||p.col>=geoImage.getWidth()||p.row>=geoImage.getHeight()){$('status').textContent='Точка вне загруженного рельефа.';return}
+ if(!damStart){damStart={...p,latlng:e.latlng};damStartMarker=L.circleMarker(e.latlng,{radius:6,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map);$('status').textContent='Начало отмечено. Укажи конец дамбы.';return}
+ const cells=rasterLine(damStart,p).filter(i=>!blockedCells.has(i)),cost=Math.max(1,Math.ceil(cells.length/8));
+ if(!cells.length){cancelDamBuild();$('status').textContent='Дамба на этом участке уже построена.';return}
+ if(funds<cost){$('status').textContent='Нужно ресурсов: '+cost+'.';return}
+ cells.forEach(i=>blockedCells.add(i));
+ const line=L.polyline([damStart.latlng,e.latlng],{color:'#e8bd55',weight:5,opacity:.95}).addTo(map);
+ line.bindTooltip('Игровая дамба · '+(cells.length*.1).toFixed(1)+' км');damLayers.push(line);
+ funds-=cost;cancelDamBuild();render();if(selected&&selected.active)drawWater();
+ $('status').textContent='Дамба построена. '+(cells.length*.1).toFixed(1)+' км; стоимость '+cost+' ресурсов. Перекрытые ячейки исключены из распространения воды.';
+});
+
+$('start').onclick=()=>{
+ if(!selected){$('status').textContent='Выбери сценарий на карте.';return}
+ if(is1953()){
+  if(mission1953&&mission1953.finished){$('status').textContent=mission1953.result+' Чтобы начать заново, выбери сценарий на карте ещё раз.';return}
+  if(!mission1953){mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};seconds=0;$('history1953').style.display='block';updateMission1953();$('status').textContent='Началась игровая реконструкция наводнения 1953 года. Принимай решения до развития второй волны.'}
+  if(!running){running=true;timer=setInterval(tick,1000);$('pause').disabled=false}
+  return;
+ }
+ if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
+ if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
+$('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
+$('repair').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём воды остановлен на 20 секунд.'};
+$('pump').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;level=Math.max(-0.2,level-.04);pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: уровень воды снижается 25 секунд.'};
+$('defendTarget').onclick=()=>{if(!running||gameFinished||!selectedTarget)return;if(funds<30){$('status').textContent='Недостаточно ресурсов.';return}funds-=30;selectedTarget.defenseUntil=seconds+75;selectedTarget.protectionLevel=Math.max(level,selectedTarget.protectionLevel)+.18;drawWater();render();updateTargetsStatus();$('status').textContent='Аварийная бригада направлена в '+selectedTarget.name+'. Защита действует 75 секунд.'};
+$('evacuateTarget').onclick=()=>{if(!running||gameFinished||!selectedTarget||selectedTarget.everFlooded)return;if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}const before=selectedTarget.evacuated;selectedTarget.evacuated=Math.min(100,before+35);const moved=Math.round(selectedTarget.population*(selectedTarget.evacuated-before)/100);totalEvacuated+=moved;funds-=20;render();updateTargetsStatus();$('status').textContent='Из '+selectedTarget.name+' вывезено '+moved.toLocaleString('ru-RU')+' жителей. Эвакуация: '+selectedTarget.evacuated+'%.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();clearSourceMarker();resetProtectedTargets();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;$('history1953').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
