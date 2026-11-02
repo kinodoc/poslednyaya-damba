@@ -34,6 +34,7 @@ header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding
 <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+function isTiffBuffer(buffer){if(buffer.byteLength<4)return false;const b=new Uint8Array(buffer,0,4);return (b[0]===0x49&&b[1]===0x49&&(b[2]===0x2a||b[2]===0x2b)&&b[3]===0)||(b[0]===0x4d&&b[1]===0x4d&&b[2]===0&&(b[3]===0x2a||b[3]===0x2b))}
 // Dutch national grid (Rijksdriehoeksstelsel / EPSG:28992)
 proj4.defs('EPSG:28992','+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.4171,50.3319,465.5524,0.398957,-0.343988,1.8774,4.0725 +units=m +no_defs');
 const map=L.map('map',{preferCanvas:true}).setView([52.15,4.75],8);
@@ -199,7 +200,7 @@ async function loadTerrain(){
   }
   const u=new URL('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0');
   u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');
-  u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
+  u.searchParams.set('CoverageID','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
   u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
   u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
   const response=await fetch(u,{signal:controller.signal});
@@ -207,13 +208,20 @@ async function loadTerrain(){
   if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
   const contentType=(response.headers.get('content-type')||'').toLowerCase();
   if(contentType.includes('xml')||contentType.includes('text')){
-   const detail=(await response.text()).slice(0,500).replace(/\\s+/g,' ');
+   const detail=(await response.text()).slice(0,500).replace(/\s+/g,' ');
    throw Error('PDOK вернул не GeoTIFF ('+contentType+'): '+detail);
   }
   const buffer=await response.arrayBuffer();
   if(buffer.byteLength<1024)throw Error('PDOK вернул подозрительно маленький файл: '+buffer.byteLength+' байт');
-  const tiff=await GeoTIFF.fromArrayBuffer(buffer,controller.signal);
+  if(buffer.byteLength>32*1024*1024)throw Error('PDOK вернул слишком большой файл: '+(buffer.byteLength/1048576).toFixed(1)+' МБ; ожидался растр 650 × 650.');
+  if(!isTiffBuffer(buffer))throw Error('Ответ PDOK не имеет заголовка TIFF. Проверь ответ сервиса и CORS.');
+  const tiff=await GeoTIFF.fromArrayBuffer(buffer);
+  if(requestId!==terrainRequestId)return;
+  if(controller.signal.aborted)throw Object.assign(new Error('Загрузка отменена'),{name:'AbortError'});
   const nextImage=await tiff.getImage();
+  if(requestId!==terrainRequestId)return;
+  if(controller.signal.aborted)throw Object.assign(new Error('Загрузка отменена'),{name:'AbortError'});
+  if(nextImage.getSamplesPerPixel()!==1)throw Error('Ожидался одноканальный растр высот, получено каналов: '+nextImage.getSamplesPerPixel());
   const nextGrid=await nextImage.readRasters({interleave:true,signal:controller.signal});
   if(requestId!==terrainRequestId)return;
   const nextOrigin=nextImage.getOrigin(),nextResolution=nextImage.getResolution(),nextExtent=nextImage.getBoundingBox();
@@ -241,7 +249,7 @@ async function loadTerrain(){
   else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
  }catch(e){
   if(requestId!==terrainRequestId)return;
-  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':(e.name==='AbortError'?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
+  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
   b.disabled=false;
  }finally{
   clearTimeout(timeoutId);
