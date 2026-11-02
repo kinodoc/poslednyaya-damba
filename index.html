@@ -95,9 +95,15 @@ L.polygon(lakeRing,{color:'#168fc0',weight:1,fillColor:'#168fc0',fillOpacity:.08
 const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).bindPopup('<b>'+s.name+'</b><br><small>'+(s.history|| (s.kind==='historic'?'Исторический район: точка ориентировочная':'Возможная точка отказа сооружения'))+'</small><br><button onclick="choose('+i+')">Выбрать сценарий</button>'));
 window.choose=i=>{
  selected=sites[i];map.closePopup();mission1953=null;$('history1953').style.display='none';
- $('start').disabled=false;
- if(is1953()){$('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Запусти сценарий: у тебя будет 3 игровых минуты на решения.';$('status').textContent='Выбран сценарий 1953 года: '+selected.name+'. Это альтернативная игровая реконструкция.'}
- else $('status').textContent=selected.active?'Выбрана точка: '+selected.name+'. Доступен расчётный прототип IJsselmeer.':'Выбран сценарий: '+selected.name+'. Для этого района расчёт затопления по AHN пока не подключён.';
+ if(is1953()){
+  $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
+  if(grid){grid=null;geoImage=null;origin=null;resolution=null;extent=null;blockedCells.clear();if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}}
+  $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
+  $('status').textContent='Выбран район 1953 года: '+selected.name+'. Нажми «Загрузить рельеф AHN», чтобы получить отдельный участок высот.';
+ }else{
+  $('start').disabled=false;
+  $('status').textContent=selected.active?'Выбрана точка: '+selected.name+'. Доступен расчётный прототип IJsselmeer.':'Выбран сценарий: '+selected.name+'. Для этого района расчёт затопления по AHN пока не подключён.';
+ }
 };
 const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk<br><span style="color:#d88924">●</span> Дельта-проект<br><span style="color:#8b6bb1">●</span> Исторические районы / возможные точки<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
@@ -119,12 +125,35 @@ function floodFromLake(waterLevel){const w=geoImage.getWidth(),h=geoImage.getHei
 while(head<tail){const p=queue[head++],c=p%w,r=(p/w)|0,ns=[c>0?p-1:-1,c<w-1?p+1:-1,r>0?p-w:-1,r<h-1?p+w:-1];for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}}return mask}
 function drawWater(){if(!grid||!selected)return;floodMask=floodFromLake(level);const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
 const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м'}
-async function loadTerrain(){const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю фрагмент AHN DTM у PDOK…';try{
-const minX=115000,maxX=180000,minY=515000,maxY=580000,n=650;
-const u=new URL('https://service.pdok.nl/rws/ahn/wcs/v1_0');u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
-const response=await fetch(u);if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);const buffer=await response.arrayBuffer();const tiff=await GeoTIFF.fromArrayBuffer(buffer);geoImage=await tiff.getImage();grid=await geoImage.readRasters({interleave:true});origin=geoImage.getOrigin();resolution=geoImage.getResolution();extent=geoImage.getBoundingBox();
-$('status').textContent='Рельеф загружен: '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Выбери точку прорыва или построй дамбу.';$('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;ahn.addTo(map);map.fitBounds([[51.25,3.1],[53.7,6.2]]);
-}catch(e){console.error(e);$('status').textContent='Не удалось получить высотный GeoTIFF: '+e.message+'. Возможно, PDOK блокирует запрос из браузера (CORS); потребуется подготовить файл рельефа отдельно.';b.disabled=false}}
+async function loadTerrain(){
+ const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю цифровую модель высот AHN у PDOK…';
+ try{
+  const n=650,half=32500;
+  let minX=115000,maxX=180000,minY=515000,maxY=580000,regionLabel='IJsselmeer / Breezanddijk';
+  if(is1953()){
+   const [cx,cy]=rd(selected.lat,selected.lon);
+   minX=Math.round(cx-half);maxX=Math.round(cx+half);
+   minY=Math.round(cy-half);maxY=Math.round(cy+half);
+   regionLabel='локальный участок Зеландии у '+selected.name.split(' — ')[0];
+  }
+  const u=new URL('https://service.pdok.nl/rws/ahn/wcs/v1_0');
+  u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');
+  u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
+  u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
+  u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
+  const response=await fetch(u);if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
+  const buffer=await response.arrayBuffer(),tiff=await GeoTIFF.fromArrayBuffer(buffer);
+  geoImage=await tiff.getImage();grid=await geoImage.readRasters({interleave:true});
+  origin=geoImage.getOrigin();resolution=geoImage.getResolution();extent=geoImage.getBoundingBox();
+  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Для сценария 1953 рельеф пока используется для размещения объектов и дамб; гидрологическая модель Зеландии ещё не подключена.';
+  $('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;ahn.addTo(map);
+  if(is1953())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
+  else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
+ }catch(e){
+  console.error(e);$('status').textContent='Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.';
+  b.disabled=false;
+ }
+}
 
 let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null;
 function startVisualEvent(){
