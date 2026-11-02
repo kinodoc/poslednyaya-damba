@@ -230,7 +230,7 @@ function initializeFloodSimulation(){
  let bestDistance=searchLimit,source=-1;
  for(let row=1;row<h-1;row++)for(let col=1;col<w-1;col++){
   const i=row*w+col,z=grid[i];
-  if(blockedCells.has(i)||polderCells.has(i)||!validTerrainHeight(z))continue;
+  if(blockedCells.has(i)||polderCells.has(i)||(waterMask&&waterMask[i])||!validTerrainHeight(z))continue;
   const [x,y]=cellCenterRD(col,row);
   // Afsluitdijk: IJsselmeer is south of the dam (lower RD northing).
   if(selected.active&&y>=by)continue;
@@ -243,7 +243,7 @@ function initializeFloodSimulation(){
  // Model a short breach section instead of feeding the flood through one 20 m cell.
  for(let row=Math.max(1,sr-5);row<=Math.min(h-2,sr+5);row++){
   for(let col=Math.max(1,sc-5);col<=Math.min(w-2,sc+5);col++){
-   const i=row*w+col,z=grid[i];if(!validTerrainHeight(z)||blockedCells.has(i)||polderCells.has(i))continue;
+   const i=row*w+col,z=grid[i];if(!validTerrainHeight(z)||blockedCells.has(i)||polderCells.has(i)||(waterMask&&waterMask[i]))continue;
    const [x,y]=cellCenterRD(col,row);
    if(Math.hypot(x-bx,y-by)>searchLimit||Math.hypot(x-sx,y-sy)>110)continue;
    if(selected.active&&y>=by)continue;
@@ -369,7 +369,7 @@ async function loadTerrain(){
   if(!selected)throw Error('Не выбран сценарий для проверки водного источника');
   const [breachX,breachY]=proj4('EPSG:4326','EPSG:28992',[selected.lon,selected.lat]),sourceSearchLimit=selected.active?1800:2200;
   for(let row=1;row<height-1;row++)for(let col=1;col<width-1;col++){
-   const i=row*width+col,z=nextGrid[i];if(!validNextHeight(z))continue;
+   const i=row*width+col,z=nextGrid[i];if(!validNextHeight(z)||nextWaterMask[i])continue;
    const x=nextOrigin[0]+(col+.5)*nextResolution[0],y=nextOrigin[1]+(row+.5)*nextResolution[1];
    if(selected.active&&y>=breachY)continue;
    if(Math.hypot(x-breachX,y-breachY)>sourceSearchLimit)continue;
@@ -379,7 +379,7 @@ async function loadTerrain(){
 
 
   geoImage=nextImage;grid=nextGrid;terrainNoData=nextNoData;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;waterMask=nextWaterMask;sourceWaterMask=nextSourceWaterMask;floodSourceIndex=null;updatePolderButtons();
-  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. AHN используется для расчёта воды; водных ячеек TOP10NL '+waterCells.toLocaleString('ru-RU')+'.';
+  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Водных ячеек TOP10NL '+waterCells.toLocaleString('ru-RU')+' · ячеек источника '+sourceWaterCells.toLocaleString('ru-RU')+' · подходящих береговых ячеек '+sourceCandidates.toLocaleString('ru-RU')+'.';
   if(isMissionSite()){
    $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
   }else{
