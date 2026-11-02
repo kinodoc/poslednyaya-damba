@@ -216,6 +216,7 @@ const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG
  }
 }
 async function loadTerrain(){
+ floodSourceIndex=null;
  if(terrainAbortController)terrainAbortController.abort();
  const controller=new AbortController();terrainAbortController=controller;
  const requestId=++terrainRequestId;let timedOut=false;
