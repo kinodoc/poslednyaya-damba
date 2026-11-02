@@ -77,7 +77,13 @@ let polderBuildMode=false,polderPoints=[],polderPreview=null,polderCells=new Set
 let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null,pumpUntil=0,floodedAreaKm2=0,gameFinished=false;
 let waterDepth=null,flowDelta=null,wetCells=new Set(),simulationReady=false,simulationSourceHeight=null,simulationSourceIsCoast=false,terrainNoData=null,breachClosed=false,waterMask=null,sourceWaterMask=null,sourceCells=new Set();
 let floodActiveBuffer=[],floodTouchedBuffer=[],waterCanvas=null,waterContext=null,waterImageData=null,waterPixelMask=null;let waterRenderedCells=new Set();
-const protectedTargets=[{name:'Den Oever',lat:52.927,lon:5.03,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:18000,evacuated:0,lost:0,everFlooded:false},{name:'Makkum',lat:53.055,lon:5.4,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Medemblik',lat:52.771,lon:5.105,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Enkhuizen',lat:52.704,lon:5.29,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity}];
+const protectedTargets=[
+ // Approximate gameplay populations; these are balance values, not historical census figures.
+ {name:'Den Oever',lat:52.927,lon:5.03,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:2400,evacuated:0,lost:0,everFlooded:false},
+ {name:'Makkum',lat:53.055,lon:5.4,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:3600,evacuated:0,lost:0,everFlooded:false},
+ {name:'Medemblik',lat:52.771,lon:5.105,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:8800,evacuated:0,lost:0,everFlooded:false},
+ {name:'Enkhuizen',lat:52.704,lon:5.29,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:18600,evacuated:0,lost:0,everFlooded:false}
+];
 let selectedTarget=null,totalLost=0,totalEvacuated=0;
 function isMissionSite(){return !!(selected&&selected.scenario)}
 const missionProfiles={
