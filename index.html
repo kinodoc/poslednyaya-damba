@@ -101,8 +101,9 @@ window.choose=i=>{
  running=false;
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
- cancelDamBuild();
+ clearBuiltDams();
  seconds=0;level=-0.2;mission1953=null;floodSourceIndex=null;repairUntil=0;
+ grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;
  $('pause').disabled=true;
  $('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
  selected=sites[i];map.closePopup();
@@ -111,7 +112,6 @@ window.choose=i=>{
  $('history1953').style.display='none';
  if(is1953()){
   $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
-  if(grid){grid=null;geoImage=null;origin=null;resolution=null;extent=null;blockedCells.clear();if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}}
   $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
   $('status').textContent='Выбран район 1953 года: '+selected.name+'. Автоматически загружаю локальный рельеф AHN…';
   loadTerrain();
@@ -139,6 +139,10 @@ function cancelDamBuild(){
  buildMode=false;damStart=null;
  if(damStartMarker){map.removeLayer(damStartMarker);damStartMarker=null}
  $('buildDam').classList.remove('main')
+}
+function clearBuiltDams(){
+ cancelDamBuild();blockedCells.clear();
+ damLayers.forEach(layer=>map.removeLayer(layer));damLayers=[];
 }
 function inLake(x,y){let inside=false;for(let i=0,j=lakeRD.length-1;i<lakeRD.length;j=i++){const a=lakeRD[i],b=lakeRD[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
 function floodFromLake(waterLevel){
@@ -338,6 +342,6 @@ $('start').onclick=()=>{
  if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём уровня воды приостановлен на 20 секунд.'};
-$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;$('history1953').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
