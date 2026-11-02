@@ -365,6 +365,9 @@ function tick(){
   advanceFloodSimulation();drawWater();
   if(floodedAreaKm2>=20||level>=0.55||protectedTargets.filter(t=>t.status==='flooded').length>=2){finishStorm(false);$('status').textContent=protectedTargets.filter(t=>t.status==='flooded').length>=2?'ПОРАЖЕНИЕ: затоплены два защищаемых населённых пункта.':'Защитная линия не справилась с водой.';render();return}
   if(seconds>=300){finishStorm(true);render();return}
+ }else if(selected&&!mission1953){
+  const surge=(seconds%90)<25?0.014:0.008;level=Math.min(2.8,level+surge);
+  advanceFloodSimulation();drawWater();
  }
  if(mission1953&&!mission1953.finished){
   level=Math.min(3.5,level+(mission1953.reinforced?.014:.018));
