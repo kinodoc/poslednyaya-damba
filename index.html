@@ -195,7 +195,7 @@ function advanceFloodSimulation(){
  for(let sub=0;sub<2;sub++){
   const active=Array.from(wetCells),touched=[];
   for(const i of active){
-   const depth=waterDepth[i];if(depth<=.002)continue;
+   const depth=waterDepth[i];if(depth<=.00005)continue;
    const head=grid[i]+depth,col=i%w,row=(i/w)|0;
    const ns=[col>0?i-1:-1,col<w-1?i+1:-1,row>0?i-w:-1,row<h-1?i+w:-1];let sent=0;
    for(const j of ns){
@@ -207,7 +207,7 @@ function advanceFloodSimulation(){
     flowDelta[i]-=amount;flowDelta[j]+=amount;sent+=amount;
    }
   }
-  for(const i of touched){waterDepth[i]=Math.max(0,waterDepth[i]+flowDelta[i]);flowDelta[i]=0;if(waterDepth[i]>.002)wetCells.add(i);else wetCells.delete(i)}
+  for(const i of touched){waterDepth[i]=Math.max(0,waterDepth[i]+flowDelta[i]);flowDelta[i]=0;if(waterDepth[i]>.00005)wetCells.add(i);else wetCells.delete(i)}
  }
 }
 function drawWater(){
