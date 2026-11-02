@@ -76,6 +76,7 @@ let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMa
 let polderBuildMode=false,polderPoints=[],polderPreview=null,polderCells=new Set(),polders=[],selectedPolder=null,polderLayers=[];
 let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null,pumpUntil=0,floodedAreaKm2=0,gameFinished=false;
 let waterDepth=null,flowDelta=null,wetCells=new Set(),simulationReady=false,simulationSourceHeight=null,simulationSourceIsCoast=false,terrainNoData=null,breachClosed=false,waterMask=null,sourceWaterMask=null,sourceCells=new Set();
+let floodActiveBuffer=[],floodTouchedBuffer=[],waterCanvas=null,waterContext=null,waterImageData=null,waterPixelMask=null;
 const protectedTargets=[{name:'Den Oever',lat:52.927,lon:5.03,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:18000,evacuated:0,lost:0,everFlooded:false},{name:'Makkum',lat:53.055,lon:5.4,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Medemblik',lat:52.771,lon:5.105,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Enkhuizen',lat:52.704,lon:5.29,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity}];
 let selectedTarget=null,totalLost=0,totalEvacuated=0;
 function isMissionSite(){return !!(selected&&selected.scenario)}
@@ -264,12 +265,13 @@ function advanceFloodSimulation(){
    if(d>.00005)wetCells.add(i);else wetCells.delete(i);
   }
  }
- if(seconds<=pumpUntil)for(const i of Array.from(wetCells)){
+ if(seconds<=pumpUntil)for(const i of wetCells){
   if(sourceCells.has(i)&&!breachClosed)continue;
   waterDepth[i]=Math.max(0,waterDepth[i]-.003);if(waterDepth[i]<=.00005)wetCells.delete(i);
  }
  for(let sub=0;sub<2;sub++){
-  const active=Array.from(wetCells),touched=[];
+  const active=floodActiveBuffer,touched=floodTouchedBuffer;active.length=0;touched.length=0;
+  for(const i of wetCells)active.push(i);
   for(const i of active){
    const depth=waterDepth[i];if(depth<=.00005)continue;
    const head=grid[i]+depth,col=i%w,row=(i/w)|0;
@@ -288,14 +290,31 @@ function advanceFloodSimulation(){
 }
 function drawWater(){
  if(!grid||!selected||!simulationReady)return;
- const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h);let count=0;
+ const w=geoImage.getWidth(),h=geoImage.getHeight(),size=w*h;
+ if(!waterCanvas||waterCanvas.width!==w||waterCanvas.height!==h){
+  waterCanvas=document.createElement('canvas');waterCanvas.width=w;waterCanvas.height=h;
+  waterContext=waterCanvas.getContext('2d');waterImageData=waterContext.createImageData(w,h);waterPixelMask=new Uint8Array(size);
+ }
+ const mask=waterPixelMask;mask.fill(0);let count=0;
  for(const i of wetCells)if(waterDepth[i]>.00005){mask[i]=1;count++}
  floodMask=mask;assessProtectedTargets(mask);
- const displayMask=mask.slice(),canvas=document.createElement('canvas');for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;
- canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);
- for(let i=0;i<displayMask.length;i++){const p=i*4;if(mask[i]){const d=waterDepth[i],x=i%w,y=(i/w)|0,sh=.5+.5*Math.sin(x*.055+y*.031-seconds*.34),br=.88+sh*.18;im.data[p]=Math.round(4*br);im.data[p+1]=Math.round((88+Math.min(78,d*48))*br);im.data[p+2]=Math.round((158+Math.min(68,d*38))*br);im.data[p+3]=Math.min(232,82+d*850)}else if(displayMask[i]){im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}
- ctx.putImageData(im,0,0);
- const c=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])],bounds=[[c[0][1],c[0][0]],[c[1][1],c[1][0]]],url=canvas.toDataURL();
+ const pixels=waterImageData.data;
+ for(let i=0;i<size;i++){
+  const p=i*4;
+  if(mask[i]){
+   const d=waterDepth[i],x=i%w,y=(i/w)|0,sh=.5+.5*Math.sin(x*.055+y*.031-seconds*.34),br=.88+sh*.18;
+   pixels[p]=Math.round(4*br);pixels[p+1]=Math.round((88+Math.min(78,d*48))*br);pixels[p+2]=Math.round((158+Math.min(68,d*38))*br);pixels[p+3]=Math.min(232,82+d*850);
+  }else if(pixels[p+3]){pixels[p]=0;pixels[p+1]=0;pixels[p+2]=0;pixels[p+3]=0}
+ }
+ // Polder overlays are sparse sets; paint them directly without copying/scanning another million-cell mask.
+ for(const polder of polders)if(!polder.drained)for(const i of polder.cells)if(!mask[i]){
+  const p=i*4;pixels[p]=55;pixels[p+1]=145;pixels[p+2]=105;pixels[p+3]=150;
+ }
+ for(const i of polderCells)if(!mask[i]){
+  const p=i*4;pixels[p]=93;pixels[p+1]=157;pixels[p+2]=111;pixels[p+3]=175;
+ }
+ waterContext.putImageData(waterImageData,0,0);
+ const c=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])],bounds=[[c[0][1],c[0][0]],[c[1][1],c[1][0]]],url=waterCanvas.toDataURL();
  if(waterOverlay)waterOverlay.setUrl(url);else waterOverlay=L.imageOverlay(url,bounds,{opacity:1,interactive:false,className:'water-surface'}).addTo(map);
  floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
  const col=floodSourceIndex%w,row=(floodSourceIndex/w)|0,[x,y]=cellCenterRD(col,row),ll=proj4('EPSG:28992','EPSG:4326',[x,y]),breach=rd(selected.lat,selected.lon);
