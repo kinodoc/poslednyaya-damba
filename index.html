@@ -94,7 +94,18 @@ L.polyline([[52.927,5.03],[53.075,5.34]],{color:'#d49a35',weight:5,opacity:.9}).
 L.polygon(lakeRing,{color:'#168fc0',weight:1,fillColor:'#168fc0',fillOpacity:.08,dashArray:'5 5'}).addTo(map).bindTooltip('IJsselmeer — условный контур водоёма');
 const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).on('click',()=>window.choose(i)).bindTooltip(s.name));
 window.choose=i=>{
- terrainRequestId++;selected=sites[i];map.closePopup();mission1953=null;$('history1953').style.display='none';
+ // Переключение сценария полностью останавливает предыдущую миссию и её визуальные эффекты.
+ terrainRequestId++;
+ running=false;
+ if(timer){clearInterval(timer);timer=null}
+ stopVisualEvent();
+ cancelDamBuild();
+ seconds=0;level=-0.2;mission1953=null;
+ $('pause').disabled=true;
+ selected=sites[i];map.closePopup();
+ if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}
+ $('water').textContent='—';$('level').textContent='—';
+ $('history1953').style.display='none';
  if(is1953()){
   $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
   if(grid){grid=null;geoImage=null;origin=null;resolution=null;extent=null;blockedCells.clear();if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}}
@@ -171,7 +182,13 @@ async function loadTerrain(){
   if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
   geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;
   $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Для сценария 1953 рельеф пока используется для размещения объектов и дамб; гидрологическая модель Зеландии ещё не подключена.';
-  $('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;ahn.addTo(map);
+  if(is1953()){
+   // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
+   $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
+  }else{
+   $('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;
+  }
+  ahn.addTo(map);
   if(is1953())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
   else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
  }catch(e){
@@ -258,8 +275,8 @@ $('start').onclick=()=>{
  }
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
  if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Прорыв у Breezanddijk открыт: вода из Вадденского моря поступает в IJsselmeer.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
-$('pause').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();$('status').textContent='Пауза.'};
+$('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
