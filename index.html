@@ -353,7 +353,7 @@ async function findNearestRwsStation(lat,lon){
   const rad=v=>v*Math.PI/180;
   let nearest=null;
   for(const [code,station] of valid){
-   const x=Number(station.X!==undefined?station.X:station.Lengtegraad),y=Number(station.Y!==undefined?station.Y:station.Breedtegraad);
+   const x=Number(station.Lon),y=Number(station.Lat);
    if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>180||Math.abs(y)>90)continue;
    const a=rad(y-lat),b=rad(x-lon),q=Math.sin(a/2)**2+Math.cos(rad(lat))*Math.cos(rad(y))*Math.sin(b/2)**2;
    const distance=6371000*2*Math.atan2(Math.sqrt(q),Math.sqrt(Math.max(0,1-q)));
