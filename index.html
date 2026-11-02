@@ -68,7 +68,7 @@ const sites=[
 ];
 let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=null,floodMask=null,waterOverlay=null,running=false,seconds=0,level=-0.2,funds=100,timer=null;
 let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMarker=null;
-let mission1953=null,terrainRequestId=0;
+let mission1953=null,terrainRequestId=0,terrainAbortController=null;
 function is1953(){return !!(selected&&selected.kind==='historic'&&selected.name.includes('1953'))}
 function updateMission1953(){
  if(!mission1953)return;
@@ -96,6 +96,7 @@ const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7
 window.choose=i=>{
  // Переключение сценария полностью останавливает предыдущую миссию и её визуальные эффекты.
  terrainRequestId++;
+ if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}
  running=false;
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
@@ -154,19 +155,26 @@ function floodFromLake(waterLevel){
   const distance=Math.hypot(x-breachX,y-breachY);
   if(distance<bestDistance){bestDistance=distance;source=i}
  }
- if(source<0)return mask;
+ if(source<0)return {mask,sourceDistance:null,sourceHeight:null,count:0};
+ const sourceHeight=grid[source];
  mask[source]=1;queue[tail++]=source;
  while(head<tail){
   const p=queue[head++],col=p%w,row=(p/w)|0;
   const ns=[col>0?p-1:-1,col<w-1?p+1:-1,row>0?p-w:-1,row<h-1?p+w:-1];
   for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}
  }
- return mask
+ return {mask,sourceDistance:bestDistance,sourceHeight,count:tail}
 }
-function drawWater(){if(!grid||!selected)return;floodMask=floodFromLake(level);const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
-const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м'}
+function drawWater(){if(!grid||!selected)return;const flood=floodFromLake(level);floodMask=flood.mask;const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
+const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';
+ if(flood.sourceDistance===null)$('status').textContent='Не найдено действительных ячеек AHN в радиусе 1,5 км от точки прорыва. Источник воды не создан.';
+ else if(count===1)$('status').textContent='Источник AHN найден в '+Math.round(flood.sourceDistance)+' м от точки прорыва (высота '+flood.sourceHeight.toFixed(2)+' м NAP), но соседних ячеек ниже уровня воды '+level.toFixed(2)+' м NAP нет. Распространение не началось.';
+}
 async function loadTerrain(){
- const requestId=++terrainRequestId;
+ if(terrainAbortController)terrainAbortController.abort();
+ const controller=new AbortController();terrainAbortController=controller;
+ const requestId=++terrainRequestId;let timedOut=false;
+ const timeoutId=setTimeout(()=>{timedOut=true;controller.abort()},45000);
  const b=$('load');b.disabled=true;$('status').textContent='Запрашиваю цифровую модель высот AHN у PDOK…';
  try{
   const n=650,half=32500;
@@ -182,7 +190,7 @@ async function loadTerrain(){
   u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
   u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
   u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
-  const response=await fetch(u);
+  const response=await fetch(u,{signal:controller.signal});
   if(requestId!==terrainRequestId)return;
   if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
   const contentType=(response.headers.get('content-type')||'').toLowerCase();
@@ -201,11 +209,15 @@ async function loadTerrain(){
   if(width!==n||height!==n)throw Error('Неверный размер растра: '+width+' × '+height+', ожидалось '+n+' × '+n);
   if(nextGrid.length!==width*height)throw Error('Размер массива высот не совпадает с размером растра');
   if(!nextOrigin||!nextResolution||!nextExtent||![...nextOrigin,...nextResolution,...nextExtent].every(Number.isFinite))throw Error('GeoTIFF содержит некорректную геопривязку');
+  if(nextResolution[0]<=0||nextResolution[1]>=0)throw Error('Неподдерживаемая ориентация растра: ожидается X вправо и Y вниз');
+  const expectedMaxX=nextOrigin[0]+width*nextResolution[0],expectedMinY=nextOrigin[1]+height*nextResolution[1];
+  const geoTolerance=Math.max(Math.abs(nextResolution[0]),Math.abs(nextResolution[1]))*1.1;
+  if(Math.abs(nextExtent[0]-nextOrigin[0])>geoTolerance||Math.abs(nextExtent[3]-nextOrigin[1])>geoTolerance||Math.abs(nextExtent[2]-expectedMaxX)>geoTolerance||Math.abs(nextExtent[1]-expectedMinY)>geoTolerance)throw Error('Границы GeoTIFF не согласуются с origin, resolution и размером растра');
   let validCells=0;
   for(let i=0;i<nextGrid.length;i++)if(Number.isFinite(nextGrid[i])&&nextGrid[i]<1e20)validCells++;
   if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
   geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;
-  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Для сценария 1953 рельеф пока используется для размещения объектов и дамб; гидрологическая модель Зеландии ещё не подключена.';
+  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Для сценария 1953 рельеф пока справочный: гидрологическая модель Зеландии не подключена.';
   if(is1953()){
    // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
    $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
@@ -217,8 +229,11 @@ async function loadTerrain(){
   else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
  }catch(e){
   if(requestId!==terrainRequestId)return;
-  console.error(e);$('status').textContent='Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.';
+  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':(e.name==='AbortError'?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
   b.disabled=false;
+ }finally{
+  clearTimeout(timeoutId);
+  if(terrainAbortController===controller)terrainAbortController=null;
  }
 }
 
@@ -303,6 +318,6 @@ $('start').onclick=()=>{
  if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
