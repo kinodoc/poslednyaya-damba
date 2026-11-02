@@ -72,16 +72,19 @@ let mission1953=null;
 function is1953(){return !!(selected&&selected.kind==='historic'&&selected.name.includes('1953'))}
 function updateMission1953(){
  if(!mission1953)return;
- $('missionScore').textContent='Эвакуация: '+mission1953.evac+' · Пролом стабилизирован: '+(mission1953.ship?'да':'нет')+' · Укрепление: '+(mission1953.reinforced?'да':'нет');
- $('missionText').textContent=mission1953.finished?'Сценарий завершён. '+mission1953.result:'Вода уже пошла через многочисленные повреждения дамб. Принимай решения: каждое действие стоит ресурсов. Это альтернативная игровая ветка, а не реконструкция фактического исхода.';
- ['evacuate','ship','reinforce'].forEach(id=>$(id).disabled=mission1953.finished);
+ $('missionScore').textContent='Эвакуация: '+mission1953.evac+'% · Спасательное судно: '+(mission1953.ship?'отправлено':'не отправлено')+' · Укрепление: '+(mission1953.reinforced?'выполнено':'не выполнено');
+ $('missionText').textContent=mission1953.finished?'Сценарий завершён. '+mission1953.result:'31 января: шторм и весенний прилив совпали. В районе Vlissingen зафиксирован максимум 4,55 м NAP. В воскресенье пришла вторая волна. Историческая справка; игровая миссия — альтернативный сценарий.';
+ $('evacuate').disabled=mission1953.finished||mission1953.evacuated;
+ $('ship').disabled=mission1953.finished||mission1953.ship;
+ $('reinforce').disabled=mission1953.finished||mission1953.reinforced;
 }
 function action1953(type,cost){
  if(!mission1953||mission1953.finished)return;
+ if((type==='evacuate'&&mission1953.evacuated)||(type==='ship'&&mission1953.ship)||(type==='reinforce'&&mission1953.reinforced))return;
  if(funds<cost){$('status').textContent='Недостаточно ресурсов: нужно '+cost+'.';return}
- if(type==='evacuate'){mission1953.evac=Math.min(100,mission1953.evac+35);mission1953.result='Проведена дополнительная эвакуация.'}
- if(type==='ship'){mission1953.ship=true;mission1953.result='Судно направлено к опасному участку. Вдохновлено реальным спасением у Ouderkerk aan den IJssel.'}
- if(type==='reinforce'){mission1953.reinforced=true;mission1953.result='Слабый участок временно укреплён.'}
+ if(type==='evacuate'){mission1953.evacuated=true;mission1953.evac=60;mission1953.result='Организована эвакуация жителей из наиболее уязвимых зон.'}
+ if(type==='ship'){mission1953.ship=true;mission1953.result='Спасательное судно направлено к одному из изолированных населённых пунктов.'}
+ if(type==='reinforce'){mission1953.reinforced=true;mission1953.result='Аварийная команда укрепляет выбранный участок дамбы.'}
  funds-=cost;render();updateMission1953();$('status').textContent=mission1953.result;
 }
 
@@ -158,7 +161,11 @@ function tick(){
  }
  render();
  if(funds>0&&seconds%10===0)funds--;
- if(mission1953&&seconds%30===0&&!mission1953.finished){$('status').textContent='1953 · игровая фаза '+Math.ceil(seconds/30)+' из 6. До завершения сценария осталось '+(180-seconds)+' сек.'}
+ if(mission1953&&!mission1953.finished&&seconds%30===0){
+  const phase=Math.ceil(seconds/30);
+  const phases=['Шторм достигает побережья Зеландии.','Первые дамбы не выдерживают нагонной воды.','Вода распространяется по низким польдерам.','Прилив достигает исторического максимума около 03:24.','Воскресенье: в сценарии развивается вторая волна.','Последний этап: оцениваем эвакуацию и аварийные работы.'];
+  $('status').textContent='Фаза '+phase+'/6 · '+phases[phase-1]+' До завершения: '+(180-seconds)+' сек.';
+ }
  else if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.';
 }
 $('load').onclick=loadTerrain;
@@ -191,7 +198,7 @@ map.on('click',e=>{
 $('start').onclick=()=>{
  if(!selected){$('status').textContent='Выбери сценарий на карте.';return}
  if(is1953()){
-  if(!running){mission1953={evac:0,ship:false,reinforced:false,finished:false,result:''};seconds=0;running=true;timer=setInterval(tick,1000);$('history1953').style.display='block';$('pause').disabled=false;updateMission1953();$('status').textContent='Началась игровая реконструкция наводнения 1953 года. Принимай решения до развития второй волны.'}
+  if(!running){mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};seconds=0;running=true;timer=setInterval(tick,1000);$('history1953').style.display='block';$('pause').disabled=false;updateMission1953();$('status').textContent='Началась игровая реконструкция наводнения 1953 года. Принимай решения до развития второй волны.'}
   return;
  }
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
