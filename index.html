@@ -13,9 +13,9 @@ header{background:#102d3d;color:#fff;padding:11px 14px;display:flex;justify-cont
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
 <div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span>ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span>УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
-<div id="status">Общая карта Нидерландов. Красные точки — Afsluitdijk, оранжевые — сооружения Дельта-проекта. Сейчас расчётный сценарий доступен у Breezanddijk.</div>
+<div id="status">Общая карта Нидерландов. Красные — Afsluitdijk, оранжевые — Дельта-проект, фиолетовые — исторические районы наводнений и ориентировочные точки риска.</div>
 <div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="reset">↺ Сброс</button></div>
-<div class="note">* Оценка по AHN DTM с шагом около 100 м. Сценарий Breezanddijk условно подаёт воду в IJsselmeer; затопление суши считается по связным ячейкам ниже игрового уровня. Контур IJsselmeer приблизительный, батиметрия озера, реальные дамбы/шлюзы, насосы, приливы и гидродинамика не смоделированы. Это игровой прототип, не прогноз. Данные высот: Rijkswaterstaat / PDOK.</div>
+<div class="note">* Оценка по AHN DTM с шагом около 100 м. Сценарий Breezanddijk условно подаёт воду в IJsselmeer; исторические точки показывают районы прошлых катастроф, а не точные координаты каждого пролома. Анимация шторма, ветра и нагонной волны иллюстративная. Реальные волновые поля, батиметрия, приливы, гидродинамика и локальные модели южных районов пока не подключены. Это игровой прототип, не прогноз. Данные высот: Rijkswaterstaat / PDOK.</div>
 </section></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.min.js"></script>
@@ -30,15 +30,38 @@ const ahn=L.tileLayer.wms('https://service.pdok.nl/rws/ahn/wms/v1_0',{layers:'dt
 L.control.layers({'OpenStreetMap':osm},{'AHN — высоты':ahn}).addTo(map);
 const cities=[['Den Oever',52.927,5.03],['Breezanddijk',53.02,5.22],['Kornwerderzand',53.075,5.34],['Harlingen',53.174,5.42],['Makkum',53.055,5.4],['Enkhuizen',52.704,5.29],['Medemblik',52.771,5.105],['Lelystad',52.508,5.475],['Urk',52.663,5.601]];
 cities.forEach(c=>L.circleMarker([c[1],c[2]],{radius:4,color:'#174e68',weight:1,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip(c[0]));
-const sites=[{name:'Breezanddijk — Afsluitdijk',lat:53.02,lon:5.22,kind:'north',active:true},{name:'Den Oever — Afsluitdijk',lat:52.927,lon:5.03,kind:'north'},{name:'Kornwerderzand — Afsluitdijk',lat:53.075,lon:5.34,kind:'north'},{name:'Maeslantkering — Роттердам',lat:51.956,lon:4.167,kind:'delta'},{name:'Oosterscheldekering — Зеландия',lat:51.63,lon:3.70,kind:'delta'},{name:'Haringvlietdam',lat:51.75,lon:4.18,kind:'delta'},{name:'Brouwersdam',lat:51.76,lon:3.86,kind:'delta'},{name:'Grevelingendam',lat:51.69,lon:4.05,kind:'delta'},{name:'Volkerakdam',lat:51.66,lon:4.28,kind:'delta'},{name:'Philipsdam',lat:51.65,lon:4.15,kind:'delta'}];
+const sites=[
+{name:'Breezanddijk — Afsluitdijk',lat:53.02,lon:5.22,kind:'north',active:true,history:'Сценарий прорыва в IJsselmeer'},
+{name:'Den Oever — Afsluitdijk',lat:52.927,lon:5.03,kind:'north'},
+{name:'Kornwerderzand — Afsluitdijk',lat:53.075,lon:5.34,kind:'north'},
+{name:'Anna Paulowna — исторический район затопления 1916',lat:52.86,lon:4.83,kind:'historic'},
+{name:'Marken / Waterland — исторический район 1916',lat:52.46,lon:5.10,kind:'historic'},
+{name:'Edam — исторический район 1916',lat:52.51,lon:5.05,kind:'historic'},
+{name:'Durgerdam — исторический район 1916',lat:52.38,lon:5.00,kind:'historic'},
+{name:'Spakenburg / Eemnes — район 1916',lat:52.25,lon:5.37,kind:'historic'},
+{name:'Kampen — район затопления 1916/1825',lat:52.555,lon:5.91,kind:'historic'},
+{name:'Maeslantkering — Роттердам',lat:51.956,lon:4.167,kind:'delta'},
+{name:'Hollandsche IJsselkering — Krimpen',lat:51.91,lon:4.60,kind:'delta'},
+{name:'Oosterscheldekering — Зеландия',lat:51.63,lon:3.70,kind:'delta'},
+{name:'Haringvlietdam',lat:51.75,lon:4.18,kind:'delta'},
+{name:'Brouwersdam',lat:51.76,lon:3.86,kind:'delta'},
+{name:'Grevelingendam',lat:51.69,lon:4.05,kind:'delta'},
+{name:'Volkerakdam',lat:51.66,lon:4.28,kind:'delta'},
+{name:'Philipsdam',lat:51.65,lon:4.15,kind:'delta'},
+{name:'Ouwerkerk — район катастрофы 1953',lat:51.63,lon:3.99,kind:'historic'},
+{name:'Stavenisse — район катастрофы 1953',lat:51.59,lon:4.01,kind:'historic'},
+{name:'Oude-Tonge — район катастрофы 1953',lat:51.69,lon:4.21,kind:'historic'},
+{name:'Nieuwerkerk aan den IJssel — угроза прорыва 1953',lat:51.65,lon:4.61,kind:'historic'},
+{name:'Ouderkerk aan den IJssel — прорыв 1953',lat:51.94,lon:4.64,kind:'historic'}
+];
 let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=null,floodMask=null,waterOverlay=null,running=false,seconds=0,level=-0.2,funds=100,timer=null;
 const lakeRing=[[53.065,5.34],[53.02,5.28],[52.96,5.18],[52.91,5.05],[52.82,5.02],[52.72,5.10],[52.69,5.28],[52.73,5.43],[52.84,5.52],[52.96,5.50],[53.04,5.43]];
 const lakeRD=lakeRing.map(p=>rd(p[0],p[1]));
 L.polyline([[52.927,5.03],[53.075,5.34]],{color:'#d49a35',weight:5,opacity:.9}).addTo(map).bindTooltip('Afsluitdijk — 32 км');
 L.polygon(lakeRing,{color:'#168fc0',weight:1,fillColor:'#168fc0',fillOpacity:.08,dashArray:'5 5'}).addTo(map).bindTooltip('IJsselmeer — условный контур водоёма');
-const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':'#e34c45',fillOpacity:1}).addTo(map).bindPopup('<b>'+s.name+'</b><br><button onclick="choose('+i+')">Выбрать точку</button>'));
-window.choose=i=>{selected=sites[i];map.closePopup();$('status').textContent=selected.active?'Выбрана точка: '+selected.name+'. Для неё доступен текущий прототип затопления IJsselmeer.':'Выбрано сооружение: '+selected.name+'. Точка отмечена на общей карте; отдельная модель рельефа и гидравлики этого района ещё не подключена.'};
-const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk<br><span style="color:#d88924">●</span> Дельта-проект<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
+const markers=sites.map((s,i)=>L.circleMarker([s.lat,s.lon],{radius:s.active?9:7,color:s.kind==='delta'?'#a45a16':s.kind==='historic'?'#6d4c91':'#922',weight:2,fillColor:s.kind==='delta'?'#f2a23a':s.kind==='historic'?'#b59ad0':'#e34c45',fillOpacity:1}).addTo(map).bindPopup('<b>'+s.name+'</b><br><small>'+(s.history|| (s.kind==='historic'?'Исторический район: точка ориентировочная':'Возможная точка отказа сооружения'))+'</small><br><button onclick="choose('+i+')">Выбрать сценарий</button>'));
+window.choose=i=>{selected=sites[i];map.closePopup();$('status').textContent=selected.active?'Выбрана точка: '+selected.name+'. Доступен расчётный прототип IJsselmeer.':'Выбран сценарий: '+selected.name+'. Анимация шторма и нагонной волны доступна; локальная модель рельефа для расчёта затопления ещё не подключена.'};
+const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk<br><span style="color:#d88924">●</span> Дельта-проект<br><span style="color:#8b6bb1">●</span> Исторические районы / возможные точки<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
@@ -51,14 +74,38 @@ async function loadTerrain(){const b=$('load');b.disabled=true;$('status').textC
 const minX=115000,maxX=180000,minY=515000,maxY=580000,n=650;
 const u=new URL('https://service.pdok.nl/rws/ahn/wcs/v1_0');u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
 const response=await fetch(u);if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);const buffer=await response.arrayBuffer();const tiff=await GeoTIFF.fromArrayBuffer(buffer);geoImage=await tiff.getImage();grid=await geoImage.readRasters({interleave:true});origin=geoImage.getOrigin();resolution=geoImage.getResolution();extent=geoImage.getBoundingBox();
-$('status').textContent='Рельеф загружен: '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Выбери красную точку прорыва.';$('start').disabled=false;$('repair').disabled=false;ahn.addTo(map);map.fitBounds([[51.35,3.25],[53.65,7.15]]);
+$('status').textContent='Рельеф загружен: '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Выбери красную точку прорыва.';$('start').disabled=false;$('repair').disabled=false;ahn.addTo(map);map.fitBounds([[51.25,3.1],[53.7,6.2]]);
 }catch(e){console.error(e);$('status').textContent='Не удалось получить высотный GeoTIFF: '+e.message+'. Возможно, PDOK блокирует запрос из браузера (CORS); потребуется подготовить файл рельефа отдельно.';b.disabled=false}}
+
+let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null;
+function startVisualEvent(){
+ stopVisualEvent();eventPhase=0;
+ const p=[selected.lat,selected.lon];
+ stormLayer=L.marker([p[0]+0.65,p[1]-1.15],{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:34px;filter:drop-shadow(0 2px 3px #123)">🌩️</div>',iconSize:[40,40],iconAnchor:[20,20]})}).addTo(map);
+ breachPulse=L.circleMarker(p,{radius:7,color:'#ffdc65',weight:3,fillColor:'#ff6b35',fillOpacity:.8}).addTo(map);
+ surgeLayers=[0,1,2,3].map(()=>L.circle(p,{radius:1000,color:'#56c8ed',weight:2,opacity:.65,fill:false,dashArray:'7 8',interactive:false}).addTo(map));
+ eventTimer=setInterval(()=>{
+  eventPhase++;
+  const t=(eventPhase%80)/80;
+  stormLayer.setLatLng([p[0]+0.65-t*0.9,p[1]-1.15+t*1.6]);
+  surgeLayers.forEach((layer,i)=>{layer.setRadius(1200+((eventPhase*850+i*18000)%90000));layer.setStyle({opacity:.65-(i*.11)})});
+  breachPulse.setRadius(7+(eventPhase%8)*1.7);
+  breachPulse.setStyle({fillOpacity:.35+((eventPhase%8)/16),color:eventPhase%2?'#fff0a0':'#ff9b45'});
+ },250);
+}
+function stopVisualEvent(){
+ if(eventTimer)clearInterval(eventTimer);eventTimer=null;
+ if(stormLayer){map.removeLayer(stormLayer);stormLayer=null}
+ surgeLayers.forEach(x=>map.removeLayer(x));surgeLayers=[];
+ if(breachPulse){map.removeLayer(breachPulse);breachPulse=null}
+}
+
 function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds}
-function tick(){if(!running)return;seconds++;level+=.002;drawWater();render();if(funds>0&&seconds%10===0)funds--;if(seconds%60===0)$('status').textContent='Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.'}
+function tick(){if(!running)return;seconds++;if(selected&&selected.active){level+=.002;drawWater()}render();if(funds>0&&seconds%10===0)funds--;if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.'}
 $('load').onclick=loadTerrain;
-$('start').onclick=()=>{if(!grid){$('status').textContent='Сначала загрузи рельеф.';return}if(!selected){$('status').textContent='Выбери точку прорыва на карте.';return}if(!selected.active){$('status').textContent='Для этого сооружения пока нет отдельного расчётного района. Сейчас работает сценарий Breezanddijk; южные модели подключим отдельно.';return}if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);$('status').textContent='Прорыв у Breezanddijk открыт: вода из Вадденского моря поступает в IJsselmeer. Игровой стартовый уровень −0,20 м NAP.';drawWater()}};
-$('pause').onclick=()=>{running=false;clearInterval(timer);$('status').textContent='Пауза.'};
+$('start').onclick=()=>{if(!grid){$('status').textContent='Сначала загрузи рельеф.';return}if(!selected){$('status').textContent='Выбери точку прорыва на карте.';return}if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Прорыв у Breezanddijk открыт: вода из Вадденского моря поступает в IJsselmeer.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
+$('pause').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;clearInterval(timer);seconds=0;level=0;funds=100;selected=null;if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('reset').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();seconds=0;level=0;funds=100;selected=null;if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
