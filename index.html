@@ -271,8 +271,8 @@ function advanceFloodSimulation(){
   if(waterDepth[i]<=.00005)wetCells.delete(i);
  }
  for(let sub=0;sub<2;sub++){
-  const active=floodActiveBuffer,touched=[],touchedSet=new Set();
-  active.length=0;
+  const active=floodActiveBuffer,touched=floodTouchedBuffer;
+  active.length=0;touched.length=0;
   for(const i of wetCells)active.push(i);
   for(const i of active){
    const depth=waterDepth[i];
@@ -287,8 +287,8 @@ function advanceFloodSimulation(){
     if(diff<=.002)continue;
     const amount=Math.min(depth*.09,diff*.075,Math.max(0,depth-sent));
     if(amount<=.00005)continue;
-    if(!touchedSet.has(i)){touchedSet.add(i);touched.push(i);}
-    if(!touchedSet.has(j)){touchedSet.add(j);touched.push(j);}
+    if(flowDelta[i]===0)touched.push(i);
+    if(flowDelta[j]===0)touched.push(j);
     flowDelta[i]-=amount;
     flowDelta[j]+=amount;
     sent+=amount;
