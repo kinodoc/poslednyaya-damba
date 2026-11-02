@@ -132,19 +132,16 @@ window.choose=i=>{
   const profile=currentMissionProfile();
   $('objective').textContent=profile.objective;
   $('scenarioPanel').style.display='block';mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};updateScenarioMission();
-  $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;$('load').disabled=true;
-  $('waterLabel').textContent='ЗОНА ВОЗДЕЙСТВИЯ*';$('levelLabel').textContent='УСЛОВНЫЙ УРОВЕНЬ';$('status').textContent='Выбран сценарий: '+profile.title+' · '+selected.name+'. Нажми «Начать». На карте появится условная зона воздействия.';
- }else if(selected.active){
+  $('start').disabled=true;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;
+  $('waterLabel').textContent='ЗАТОПЛЕННАЯ ПЛОЩАДЬ';$('levelLabel').textContent='УРОВЕНЬ ВОДЫ NAP';
+  $('status').textContent='Загружаю AHN для расчёта затопления у '+selected.name+'…';loadTerrain();
+ }else{
   $('start').disabled=true;
   $('status').textContent='Выбрана точка: '+selected.name+'. Автоматически загружаю рельеф AHN…';
   loadTerrain();
- }else{
-  $('start').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;
-  grid=null;geoImage=null;origin=null;resolution=null;extent=null;
-  $('status').textContent='Точка выбрана: '+selected.name+'. Для этого района пока нет подключённой модели затопления; запуск отключён, чтобы не показывать фиктивную симуляцию.';
  }
 };
-const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — условное затопление миссии<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
+const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — затопленные ячейки AHN<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
@@ -176,20 +173,16 @@ function floodFromLake(waterLevel){
  const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);
  let head=0,tail=0;
  const valid=i=>!blockedCells.has(i)&&!polderCells.has(i)&&Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;
- // Стартуем в ближайшей действительной ячейке AHN к точке условного пролома.
- // Далее вода проходит только по соседним ячейкам ниже заданного уровня.
  const [breachX,breachY]=rd(selected.lat,selected.lon);
  let source=floodSourceIndex,bestDistance=Infinity;
  if(source!==null&&(blockedCells.has(source)||polderCells.has(source)))source=null;
  if(source===null){
-  let best=1500;
-  for(let r=0;r<h;r++)for(let c=0;c<w;c++){
-   const i=r*w+c;
+  let best=4000;
+  for(let row=0;row<h;row++)for(let col=0;col<w;col++){
+   const i=row*w+col;
    if(blockedCells.has(i)||polderCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
-   const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);
-   // Breezanddijk: IJsselmeer lies south of the Afsluitdijk (lower RD Y).
-   // Exclude the Wadden Sea side when selecting the flood source.
-   if(y>=breachY)continue;
+   const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+   if(selected.active&&y>=breachY)continue;
    const distance=Math.hypot(x-breachX,y-breachY);
    if(distance<best){best=distance;bestDistance=distance;source=i}
   }
@@ -209,20 +202,21 @@ function floodFromLake(waterLevel){
  }
  return {mask,sourceIndex:source,sourceDistance:bestDistance,sourceHeight,count:tail}
 }
-function drawWater(){if(!grid||!selected)return;const flood=floodFromLake(level);floodMask=flood.mask;assessProtectedTargets(floodMask);const w=geoImage.getWidth(),h=geoImage.getHeight(),displayMask=floodMask.slice(),canvas=document.createElement('canvas');for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<displayMask.length;i++){const p=i*4;if(displayMask[i]){im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;if(floodMask[i])count++}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
+function drawWater(){if(!grid||!selected)return;let flood=floodFromLake(level);if(mission1953&&seconds===0&&flood.sourceIndex!==null&&level<flood.sourceHeight){level=flood.sourceHeight;flood=floodFromLake(level)}floodMask=flood.mask;assessProtectedTargets(floodMask);const w=geoImage.getWidth(),h=geoImage.getHeight(),displayMask=floodMask.slice(),canvas=document.createElement('canvas');for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<displayMask.length;i++){const p=i*4;if(displayMask[i]){if(floodMask[i]){const depth=Math.max(0,level-grid[i]);im.data[p]=8;im.data[p+1]=112+Math.min(55,depth*28);im.data[p+2]=178+Math.min(45,depth*22);im.data[p+3]=Math.min(225,175+depth*18);count++}else{im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
 const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
- if(flood.sourceIndex===null){clearSourceMarker();$('status').textContent='Не найдено действительных ячеек AHN в радиусе 1,5 км от точки прорыва со стороны IJsselmeer. Источник воды не создан.'}
+ if(flood.sourceIndex===null){clearSourceMarker();$('status').textContent='Не найдено действительных ячеек AHN в радиусе 4 км от выбранной точки. Источник воды не создан.'}
  else{
   const col=flood.sourceIndex%w,row=(flood.sourceIndex/w)|0,x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
   const ll=proj4('EPSG:28992','EPSG:4326',[x,y]);
-  const label='Источник AHN · '+Math.round(flood.sourceDistance)+' м от точки прорыва · '+flood.sourceHeight.toFixed(2)+' м NAP';
+  const label='Источник нагонной воды · '+Math.round(flood.sourceDistance)+' м от точки · '+flood.sourceHeight.toFixed(2)+' м NAP';
   if(sourceMarker){sourceMarker.setLatLng([ll[1],ll[0]]);sourceMarker.setTooltipContent(label)}
   else sourceMarker=L.circleMarker([ll[1],ll[0]],{radius:7,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map).bindTooltip(label);
-  if(count===1)$('status').textContent='Источник AHN найден в '+Math.round(flood.sourceDistance)+' м от точки прорыва (высота '+flood.sourceHeight.toFixed(2)+' м NAP), но соседних ячеек ниже уровня воды '+level.toFixed(2)+' м NAP нет. Распространение не началось.';
+  if(count===1)$('status').textContent='Источник AHN найден в '+Math.round(flood.sourceDistance)+' м (высота '+flood.sourceHeight.toFixed(2)+' м NAP). Вода пока не достигла соседних низин.';
   else $('status').textContent='Источник воды отмечен жёлтым маркером. Расстояние '+Math.round(flood.sourceDistance)+' м; высота '+flood.sourceHeight.toFixed(2)+' м NAP; затоплено ячеек '+count+'.';
  }
 }
 async function loadTerrain(){
+ floodSourceIndex=null;
  if(terrainAbortController)terrainAbortController.abort();
  const controller=new AbortController();terrainAbortController=controller;
  const requestId=++terrainRequestId;let timedOut=false;
@@ -231,7 +225,7 @@ async function loadTerrain(){
  try{
   const n=650,half=32500;
   let minX=115000,maxX=180000,minY=515000,maxY=580000,regionLabel='IJsselmeer / Breezanddijk';
-  if(selected&&selected.active){
+  if(selected){
    const [cx,cy]=rd(selected.lat,selected.lon);
    minX=Math.round(cx-half);maxX=Math.round(cx+half);
    minY=Math.round(cy-half);maxY=Math.round(cy+half);
@@ -276,16 +270,15 @@ async function loadTerrain(){
   for(let i=0;i<nextGrid.length;i++)if(Number.isFinite(nextGrid[i])&&nextGrid[i]<1e20)validCells++;
   if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
   geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;floodSourceIndex=null;updatePolderButtons();
-  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Для сценария 1953 рельеф пока справочный: гидрологическая модель Зеландии не подключена.';
+  $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. AHN используется для расчёта распространения воды по рельефу.';
   if(isMissionSite()){
-   // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
    $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
   }else{
    $('start').disabled=false;$('repair').disabled=false;$('pump').disabled=false;$('buildDam').disabled=false;
   }
   ahn.addTo(map);
   if(isMissionSite())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
-  else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
+  else map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
  }catch(e){
   if(requestId!==terrainRequestId)return;
   console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
@@ -299,40 +292,22 @@ async function loadTerrain(){
 let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null,missionImpactLayer=null,missionWaveLayers=[],missionActionMarkers=[];
 function startVisualEvent(){
  stopVisualEvent();eventPhase=0;
- const p=[selected.lat,selected.lon];
- stormLayer=L.marker([p[0]+0.65,p[1]-1.15],{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:34px;filter:drop-shadow(0 2px 3px #123)">🌩️</div>',iconSize:[40,40],iconAnchor:[20,20]})}).addTo(map);
- breachPulse=L.circleMarker(p,{radius:7,color:'#ffdc65',weight:3,fillColor:'#ff6b35',fillOpacity:.8}).addTo(map);
- surgeLayers=[0,1,2,3].map(()=>L.circle(p,{radius:1000,color:'#56c8ed',weight:2,opacity:.65,fill:false,dashArray:'7 8',interactive:false}).addTo(map));
+ const p=[selected.lat,selected.lon],direction=(selected.lon<4.35?1:-1);
+ const stormStart=[p[0]+.42,p[1]-.62*direction];
+ stormLayer=L.marker(stormStart,{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:38px;filter:drop-shadow(0 2px 3px #123)">🌧️</div>',iconSize:[44,44],iconAnchor:[22,22]})}).addTo(map);
+ breachPulse=L.circleMarker(p,{radius:8,color:'#ffe58a',weight:3,fillColor:'#ff6b35',fillOpacity:.9}).addTo(map);
+ surgeLayers=[0,1,2].map((v)=>L.polyline([[p[0]+.22+v*.09,p[1]-.5*direction],[p[0]-.22+v*.09,p[1]+.5*direction]],{color:'#55c9ed',weight:3-v*.5,opacity:.72-v*.15,dashArray:'10 9',interactive:false}).addTo(map));
  eventTimer=setInterval(()=>{
   eventPhase++;
-  const t=(eventPhase%80)/80;
-  stormLayer.setLatLng([p[0]+0.65-t*0.9,p[1]-1.15+t*1.6]);
-  surgeLayers.forEach((layer,i)=>{layer.setRadius(1200+((eventPhase*850+i*18000)%90000));layer.setStyle({opacity:.65-(i*.11)})});
-  breachPulse.setRadius(7+(eventPhase%8)*1.7);
-  breachPulse.setStyle({fillOpacity:.35+((eventPhase%8)/16),color:eventPhase%2?'#fff0a0':'#ff9b45'});
- },250);
+  const t=(eventPhase%60)/60;
+  stormLayer.setLatLng([stormStart[0]-.42*t,stormStart[1]+.62*direction*t]);
+  surgeLayers.forEach((layer,i)=>{const shift=t*.34;layer.setLatLngs([[p[0]+.22+i*.09-shift,p[1]-.5*direction+shift*direction],[p[0]-.22+i*.09-shift,p[1]+.5*direction+shift*direction]]);layer.setStyle({opacity:.72-i*.15})});
+  breachPulse.setRadius(8+(eventPhase%8)*1.6);
+  breachPulse.setStyle({fillOpacity:.45+((eventPhase%8)/18),color:eventPhase%2?'#fff0a0':'#ff9b45'});
+ },300);
 }
-function startMissionVisual(){
- stopVisualEvent();
- const p=[selected.lat,selected.lon];
- missionImpactLayer=L.circle(p,{radius:700,color:'#168fc0',weight:2,opacity:.95,fillColor:'#168fc0',fillOpacity:.22,interactive:false}).addTo(map);
- missionWaveLayers=[1.25,1.65,2.05].map((scale,i)=>L.circle(p,{radius:700*scale,color:'#56c8ed',weight:2,opacity:.72-i*.12,fill:false,dashArray:'8 7',interactive:false}).addTo(map));
- stormLayer=L.marker([p[0]+.18,p[1]-.28],{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:30px;filter:drop-shadow(0 2px 3px #123)">🌧️</div>',iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map);
- breachPulse=L.circleMarker(p,{radius:10,color:'#fff0a0',weight:3,fillColor:'#168fc0',fillOpacity:.9,interactive:false}).addTo(map);
- updateMissionVisual();
-}
-function updateMissionVisual(){
- if(!missionImpactLayer||!selected||!mission1953)return;
- const radius=700+seconds*48*(mission1953.reinforced?.55:1);
- missionImpactLayer.setRadius(radius);
- missionImpactLayer.setStyle({fillOpacity:mission1953.reinforced?.13:.22,color:mission1953.reinforced?'#e9b34b':'#168fc0'});
- missionWaveLayers.forEach((layer,i)=>{layer.setRadius(radius*(1.25+i*.4));layer.setStyle({opacity:.68-i*.14})});
- if(stormLayer)stormLayer.setLatLng([selected.lat+.18-Math.min(.16,seconds*.0008),selected.lon-.28+Math.min(.24,seconds*.0012)]);
- if(breachPulse)breachPulse.setRadius(10+(seconds%5)*1.1);
- const area=Math.PI*radius*radius/1e6;
- $('water').textContent=area.toFixed(1)+' км²';
- $('level').textContent=Math.max(0,level).toFixed(2)+' м*';
-}
+function startMissionVisual(){startVisualEvent()}
+function updateMissionVisual(){if(breachPulse)breachPulse.setRadius(8+(seconds%6)*1.3)}
 function showMissionAction(type){
  if(!selected)return;
  const icons={evacuate:'🚶',ship:'🚤',reinforce:'🛠️'};
@@ -366,7 +341,7 @@ function tick(){
  }
  if(mission1953&&!mission1953.finished){
   level=Math.min(3.5,level+(mission1953.reinforced?.006:.012));
-  updateMissionVisual();
+  drawWater();updateMissionVisual();
  }
  if(mission1953&&!mission1953.finished&&seconds>=currentMissionProfile().duration){
   mission1953.finished=true;
@@ -483,8 +458,9 @@ $('start').onclick=()=>{
  if(!selected){$('status').textContent='Выбери сценарий на карте.';return}
  if(isMissionSite()){
   if(mission1953&&mission1953.finished){$('status').textContent=mission1953.result+' Чтобы начать заново, выбери сценарий на карте ещё раз.';return}
+  if(!grid){$('status').textContent='Дождись загрузки AHN для выбранного района.';return}
   if(!mission1953)mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};
-  if(!running){running=true;level=-0.2;map.flyTo([selected.lat,selected.lon],10,{duration:1});startMissionVisual();timer=setInterval(tick,1000);$('pause').disabled=false;$('status').textContent='Началась миссия: '+currentMissionProfile().title+'. На карте синим показана условная зона воздействия; это игровая визуализация, не расчёт AHN.'}
+  if(!running){running=true;level=-0.2;map.flyTo([selected.lat,selected.lon],10,{duration:1});startVisualEvent();drawWater();timer=setInterval(tick,1000);$('pause').disabled=false;$('status').textContent='Началась миссия: '+currentMissionProfile().title+'. Синяя область показывает затопленные ячейки AHN; фронт шторма и нагон движутся к берегу.'}
   return;
  }
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
