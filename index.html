@@ -38,7 +38,7 @@ const $=id=>document.getElementById(id);
 proj4.defs('EPSG:28992','+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.4171,50.3319,465.5524,0.398957,-0.343988,1.8774,4.0725 +units=m +no_defs');
 const map=L.map('map',{preferCanvas:true}).setView([52.15,4.75],8);
 const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-const ahn=L.tileLayer.wms('https://service.pdok.nl/rws/ahn/wms/v1_0',{layers:'dtm_05m',format:'image/png',transparent:true,opacity:.55,attribution:'AHN © Rijkswaterstaat / PDOK'});
+const ahn=L.tileLayer.wms('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wms/v1_0',{layers:'dtm_05m',format:'image/png',transparent:true,opacity:.55,attribution:'AHN © Rijkswaterstaat / PDOK'});
 L.control.layers({'OpenStreetMap':osm},{'AHN — высоты':ahn}).addTo(map);
 const cities=[['Den Oever',52.927,5.03],['Breezanddijk',53.02,5.22],['Kornwerderzand',53.075,5.34],['Harlingen',53.174,5.42],['Makkum',53.055,5.4],['Enkhuizen',52.704,5.29],['Medemblik',52.771,5.105],['Lelystad',52.508,5.475],['Urk',52.663,5.601]];
 cities.forEach(c=>L.circleMarker([c[1],c[2]],{radius:4,color:'#174e68',weight:1,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip(c[0]));
@@ -177,7 +177,7 @@ async function loadTerrain(){
    minY=Math.round(cy-half);maxY=Math.round(cy+half);
    regionLabel='локальный участок Зеландии у '+selected.name.split(' — ')[0];
   }
-  const u=new URL('https://service.pdok.nl/rws/ahn/wcs/v1_0');
+  const u=new URL('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0');
   u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');
   u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
   u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
