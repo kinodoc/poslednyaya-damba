@@ -151,7 +151,7 @@ function cellKey(c,r){return r*geoImage.getWidth()+c}
 function validTerrainHeight(z){return Number.isFinite(z)&&z<1e20&&(terrainNoData===null||z!==terrainNoData)}
 const PDOK_RD_CRS='http://www.opengis.net/def/crs/EPSG/0/28992';
 async function loadWaterFeatures(minX,minY,maxX,maxY,signal){
- let next=new URL('https://api.pdok.nl/kadaster/brt-top10nl/ogc/v1/collections/waterdeel_vlak/items');
+ let next=new URL('https://api.pdok.nl/brt/top10nl/ogc/v1/collections/waterdeel_vlak/items');
  next.searchParams.set('bbox',[minX,minY,maxX,maxY].join(','));next.searchParams.set('bbox-crs',PDOK_RD_CRS);next.searchParams.set('crs',PDOK_RD_CRS);next.searchParams.set('limit','1000');next.searchParams.set('f','json');
  const all=[];let pages=0;
  while(next&&pages<20){const response=await fetch(next,{signal,headers:{Accept:'application/geo+json, application/json'}});if(!response.ok)throw Error('TOP10NL waterdeel_vlak: HTTP '+response.status);const data=await response.json();if(!data||!Array.isArray(data.features))throw Error('TOP10NL вернул не GeoJSON FeatureCollection');all.push(...data.features);pages++;if(all.length>100000)throw Error('TOP10NL вернул слишком много водных объектов для одного участка');const link=(data.links||[]).find(x=>x.rel==='next');next=link&&link.href?new URL(link.href,next):null}
