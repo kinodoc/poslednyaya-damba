@@ -213,12 +213,12 @@ function advanceFloodSimulation(){
 function drawWater(){
  if(!grid||!selected||!simulationReady)return;
  const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h);let count=0;
- for(const i of wetCells)if(waterDepth[i]>.01){mask[i]=1;count++}
+ for(const i of wetCells)if(waterDepth[i]>.00005){mask[i]=1;count++}
  floodMask=mask;assessProtectedTargets(mask);
  const displayMask=mask.slice(),canvas=document.createElement('canvas');
  for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;
  canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);
- for(let i=0;i<displayMask.length;i++){const p=i*4;if(mask[i]){const d=waterDepth[i];im.data[p]=5;im.data[p+1]=Math.round(92+Math.min(75,d*45));im.data[p+2]=Math.round(165+Math.min(65,d*35));im.data[p+3]=Math.min(235,145+d*30)}else if(displayMask[i]){im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}
+ for(let i=0;i<displayMask.length;i++){const p=i*4;if(mask[i]){const d=waterDepth[i];im.data[p]=5;im.data[p+1]=Math.round(92+Math.min(75,d*45));im.data[p+2]=Math.round(165+Math.min(65,d*35));im.data[p+3]=Math.min(225,75+d*900)}else if(displayMask[i]){im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}
  ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
  const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];
  waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);
