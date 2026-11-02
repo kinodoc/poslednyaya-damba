@@ -9,6 +9,39 @@ const solverMatch = html.match(/function advanceFloodSimulation\(\)\{[\s\S]*?\n\
 assert.ok(solverMatch, 'advanceFloodSimulation must exist');
 const solverSource = solverMatch[0].replace(/\nfunction drawWater\(\)$/, '');
 
+const rasterizerStart = html.indexOf('function rasterizeWaterFeatures(');
+const rasterizerEnd = html.indexOf('\nfunction ', rasterizerStart + 1);
+assert.ok(rasterizerStart >= 0 && rasterizerEnd > rasterizerStart, 'rasterizeWaterFeatures must exist');
+const rasterizerSource = html.slice(rasterizerStart, rasterizerEnd);
+
+function rasterize(features) {
+  const context = { proj4: (_from, _to, coordinates) => coordinates };
+  const fn = vm.runInNewContext(rasterizerSource + '; rasterizeWaterFeatures', context);
+  return fn(features, 10, 10, [0, 100], [10, -10]);
+}
+
+const polygon = (rings) => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: rings } });
+const square = (x0, y0, x1, y1) => [[
+  [x0, y1], [x1, y1], [x1, y0], [x0, y0], [x0, y1]
+]];
+
+test('TOP10NL scanline rasterizer preserves polygon holes', () => {
+  const mask = rasterize([polygon([
+    square(10, 10, 90, 90)[0],
+    square(30, 30, 70, 70)[0]
+  ])]);
+  assert.equal(mask[1 * 10 + 1], 1, 'land cell inside the outer ring should be water');
+  assert.equal(mask[3 * 10 + 3], 0, 'cell inside the inner hole should remain land');
+});
+
+test('overlapping TOP10NL polygons do not erase another polygon', () => {
+  const mask = rasterize([
+    polygon([square(10, 10, 90, 90)[0], square(30, 30, 70, 70)[0]]),
+    polygon(square(30, 60, 40, 70))
+  ]);
+  assert.equal(mask[3 * 10 + 3], 1, 'the second polygon must fill a cell inside the first polygon hole');
+});
+
 function makeSimulation(options = {}) {
   const width = 3;
   const height = 3;
