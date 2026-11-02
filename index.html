@@ -103,7 +103,7 @@ window.choose=i=>{
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
  clearBuiltDams();clearSourceMarker();
- seconds=0;level=-0.2;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;updateObjective();
+ seconds=0;level=-0.2;funds=100;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;render();
  grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;
  $('pause').disabled=true;
  $('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
@@ -112,6 +112,7 @@ window.choose=i=>{
  $('water').textContent='—';$('level').textContent='—';
  $('history1953').style.display='none';
  if(is1953()){
+  $('objective').textContent='Цель: выполнить спасательные операции за 3 минуты.';
   $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
   $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
   $('status').textContent='Выбран район 1953 года: '+selected.name+'. Автоматически загружаю локальный рельеф AHN…';
@@ -294,7 +295,7 @@ function stopVisualEvent(){
  if(breachPulse){map.removeLayer(breachPulse);breachPulse=null}
 }
 
-function updateObjective(){if(gameFinished)return;const progress=Math.min(100,seconds/300*100);$('objective').textContent='Цель: пережить шторм · '+Math.floor(progress)+'% · предел затопления 20 км²'+(pumpUntil>seconds?' · насос работает':'')+(repairUntil>seconds?' · укрепление держится':'')}
+function updateObjective(){if(gameFinished)return;const progress=Math.min(100,seconds/300*100);$('objective').textContent='Цель: пережить шторм · '+Math.floor(progress)+'% · волна '+(Math.floor(seconds/90)+1)+'/4 · предел 20 км²'+(pumpUntil>seconds?' · насос работает':'')+(repairUntil>seconds?' · укрепление держится':'')}
 function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds;updateObjective()}
 function finishStorm(won){gameFinished=true;running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('pause').disabled=true;$('start').disabled=true;$('status').textContent=won?'ПОБЕДА! Дамба выдержала шторм. Можно усложнить следующий заход.':'ПОРАЖЕНИЕ. Защитная линия не справилась с водой. Попробуй иначе распределить ресурсы.';$('objective').textContent=won?'Шторм пережит за 5 минут. Победа!':'Защитная линия прорвана. Игра окончена.'}
 function tick(){
@@ -360,8 +361,8 @@ $('start').onclick=()=>{
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
  if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
-$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём воды остановлен на 20 секунд.'};
-$('pump').onclick=()=>{if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;level=Math.max(-0.2,level-.04);pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: уровень воды снижается 25 секунд.'};
+$('repair').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём воды остановлен на 20 секунд.'};
+$('pump').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;level=Math.max(-0.2,level-.04);pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: уровень воды снижается 25 секунд.'};
 $('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();clearSourceMarker();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;$('history1953').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
