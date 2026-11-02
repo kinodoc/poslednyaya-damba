@@ -365,83 +365,6 @@ function drawWater(){
  if(sourceMarker){sourceMarker.setLatLng([ll[1],ll[0]]);sourceMarker.setTooltipContent(label)}else sourceMarker=L.circleMarker([ll[1],ll[0]],{radius:7,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map).bindTooltip(label);
  $('status').textContent='AHN: '+count.toLocaleString('ru-RU')+' ячеек с водой · источник '+(breachClosed?'закрыт':'открыт')+'.';
 }
-async function findNearestRwsStation(lat,lon){
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
- try{
-  const response=await fetch('https://ddapi20-waterwebservices.rijkswaterstaat.nl/METADATASERVICES/OphalenCatalogus',{
-   method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'application/json'},
-   body:JSON.stringify({CatalogusFilter:{Compartimenten:true,Grootheden:true,Eenheden:true,Hoedanigheden:true,ProcesTypes:true}})
-  });
-  if(!response.ok)throw Error('каталог RWS: HTTP '+response.status);
-  const data=await response.json();
-  const metadata=Array.isArray(data.AquoMetadataLijst)?data.AquoMetadataLijst:[];
-  const locations=Array.isArray(data.LocatieLijst)?data.LocatieLijst:[];
-  const links=Array.isArray(data.AquoMetadataLocatieLijst)?data.AquoMetadataLocatieLijst:[];
-  if(!metadata.length||!locations.length||!links.length)throw Error('каталог RWS не содержит полный набор метаданных, станций и связей');
-  const messageId=x=>x.MessageID??x.AquoMetadata_MessageID??x.AquoMetadataMessageID;
-  const ids=new Set(metadata.filter(m=>{
-   const a=m.AquoMetadata||m;
-   return String(a.Compartiment&&a.Compartiment.Code||'').toUpperCase()==='OW'&&String(a.Grootheid&&a.Grootheid.Code||'').toUpperCase()==='WATHTE';
-  }).map(messageId).filter(x=>x!==undefined&&x!==null));
-  if(!ids.size)throw Error('в каталоге нет рядов WATHTE для поверхностной воды (OW)');
-  const locationByCode=new Map(locations.map(x=>[String(x.Code||x.LocatieCode||''),x]));
-  const valid=new Map();
-  for(const link of links){
-   const id=messageId(link);
-   const code=link.LocatieCode||link.Code||link.Locatie&&link.Locatie.Code;
-   if(ids.has(id)&&code&&locationByCode.has(String(code)))valid.set(String(code),locationByCode.get(String(code)));
-  }
-  if(!valid.size)throw Error('не удалось связать измерения WATHTE с координатами станций по MessageID');
-  const rad=v=>v*Math.PI/180;
-  let nearest=null;
-  for(const [code,station] of valid){
-   const x=Number(station.Lon),y=Number(station.Lat);
-   if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>180||Math.abs(y)>90)continue;
-   const a=rad(y-lat),b=rad(x-lon),q=Math.sin(a/2)**2+Math.cos(rad(lat))*Math.cos(rad(y))*Math.sin(b/2)**2;
-   const distance=6371000*2*Math.atan2(Math.sqrt(q),Math.sqrt(Math.max(0,1-q)));
-   if(!nearest||distance<nearest.distance)nearest={code,name:station.Naam||station.Name||code,distance,x,y};
-  }
-  if(!nearest)throw Error('у связанных станций WATHTE отсутствуют координаты ETRS89');
-  if(nearest.distance>35000)throw Error('ближайшая станция WATHTE дальше 35 км ('+(nearest.distance/1000).toFixed(1)+' км)');
-  return nearest;
- }finally{clearTimeout(timeout)}
-}
-async function fetchRwsWaterLevel(station){
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
- try{
-  const response=await fetch('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenLaatsteWaarnemingen',{
-   method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'application/json'},
-   body:JSON.stringify({LocatieLijst:[{Code:station.code}],AquoPlusWaarnemingMetadataLijst:[{AquoMetadata:{Compartiment:{Code:'OW'},Grootheid:{Code:'WATHTE'},ProcesType:'meting'}}]})
-  });
-  if(!response.ok)throw Error('последние измерения RWS: HTTP '+response.status);
-  const data=await response.json(),series=Array.isArray(data.WaarnemingenLijst)?data.WaarnemingenLijst:[];
-  const candidates=[];
-  for(const item of series){
-   const meta=item.AquoMetadata||{},unit=String(meta.Eenheid&&meta.Eenheid.Code||'').toUpperCase(),process=String(meta.ProcesType||'').toLowerCase();
-   if(process&&process!=='meting')continue;
-   if(!['CM','M'].includes(unit))continue;
-   for(const reading of (item.MetingenLijst||[])){
-    const observationMeta=reading.WaarnemingMetadata||{};
-    const referenceLevels=Array.isArray(observationMeta.ReferentievlakLijst)?observationMeta.ReferentievlakLijst:[];
-    const datum=referenceLevels.map(x=>String(x&&x.Code||x||'').toUpperCase());
-    if(!datum.includes('NAP'))continue;
-    const raw=reading.Meetwaarde&&reading.Meetwaarde.Waarde_Numeriek,value=Number(raw),time=Date.parse(reading.Tijdstip);
-    const qualityValues=Array.isArray(observationMeta.KwaliteitswaardecodeLijst)?observationMeta.KwaliteitswaardecodeLijst:[observationMeta.Kwaliteitswaardecode];
-    const quality=qualityValues.map(x=>String(x&&x.Code||x||'')).find(x=>['00','10','20','25','30','40'].includes(x))||'';
-    if(!Number.isFinite(value)||!Number.isFinite(time)||!quality)continue;
-    if(!candidates.length||time>candidates[0].time)candidates.splice(0,candidates.length,{value:unit==='CM'?value/100:value,time,quality,unit,datum});
-    else if(time===candidates[0].time)candidates.push({value:unit==='CM'?value/100:value,time,quality,unit,datum});
-   }
-  }
-  if(!candidates.length)throw Error('нет свежего измерения WATHTE с подтверждённым NAP и единицами cm/m');
-  const newest=candidates[0],age=Date.now()-newest.time;
-  if(age< -10*60*1000||age>90*60*1000)throw Error('последнее измерение устарело ('+Math.round(age/60000)+' мин)');
-  const values=candidates.filter(x=>x.time===newest.time);
-  if(values.some(x=>Math.abs(x.value-newest.value)>.02))throw Error('для станции найдены конфликтующие ряды с одинаковым временем');
-  return {level:newest.value,time:new Date(newest.time).toISOString(),quality:newest.quality,unit:'m NAP'};
- }finally{clearTimeout(timeout)}
-}
-
 async function loadTerrain(){
  floodSourceIndex=null;
  if(terrainAbortController)terrainAbortController.abort();
@@ -524,18 +447,7 @@ async function loadTerrain(){
   }else{
    $('start').disabled=false;$('repair').disabled=false;$('pump').disabled=false;$('buildDam').disabled=false;
   }
-  const stationScenario=selected,stationRequestId=requestId;
-  findNearestRwsStation(selected.lat,selected.lon).then(async station=>{
-   if(stationRequestId!==terrainRequestId||selected!==stationScenario)return;
-   const reading=await fetchRwsWaterLevel(station);
-   if(stationRequestId!==terrainRequestId||selected!==stationScenario)return;
-   window.rwsBoundaryObservation={station,reading};
-   $('status').textContent+=' RWS: '+station.name+' ('+station.code+'), '+(station.distance/1000).toFixed(1)+' км · '+reading.level.toFixed(2)+' м NAP · '+new Date(reading.time).toLocaleString('ru-RU')+' · качество '+reading.quality+'. Пока контрольное измерение, не граничное условие.';
-  }).catch(error=>{
-   if(stationRequestId!==terrainRequestId||selected!==stationScenario)return;
-   console.warn('RWS water level:',error);
-   $('status').textContent+=' Измерение RWS не принято: '+error.message+'.';
-  });
+  $('status').textContent+=' Наблюдения RWS пока не подключены: API не разрешает прямой браузерный запрос (CORS).';
   ahn.addTo(map);
   if(selected){
    map.fitBounds([[selected.lat-0.09,selected.lon-0.15],[selected.lat+0.09,selected.lon+0.15]]);
