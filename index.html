@@ -294,11 +294,13 @@ map.on('click',e=>{
 $('start').onclick=()=>{
  if(!selected){$('status').textContent='Выбери сценарий на карте.';return}
  if(is1953()){
-  if(!running){mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};seconds=0;running=true;timer=setInterval(tick,1000);$('history1953').style.display='block';$('pause').disabled=false;updateMission1953();$('status').textContent='Началась игровая реконструкция наводнения 1953 года. Принимай решения до развития второй волны.'}
+  if(mission1953&&mission1953.finished){$('status').textContent=mission1953.result+' Чтобы начать заново, выбери сценарий на карте ещё раз.';return}
+  if(!mission1953){mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};seconds=0;$('history1953').style.display='block';updateMission1953();$('status').textContent='Началась игровая реконструкция наводнения 1953 года. Принимай решения до развития второй волны.'}
+  if(!running){running=true;timer=setInterval(tick,1000);$('pause').disabled=false}
   return;
  }
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
- if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
+ if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
 $('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
