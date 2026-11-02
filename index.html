@@ -182,6 +182,7 @@ function floodFromLake(waterLevel){
    const i=row*w+col;
    if(blockedCells.has(i)||polderCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
    const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+   if(selected.active&&y>=breachY)continue;
    const distance=Math.hypot(x-breachX,y-breachY);
    if(distance<best){best=distance;bestDistance=distance;source=i}
   }
@@ -276,7 +277,7 @@ async function loadTerrain(){
   }
   ahn.addTo(map);
   if(isMissionSite())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
-  else map.fitBounds([[51.25,3.1],[53.7,6.2]]);
+  else map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
  }catch(e){
   if(requestId!==terrainRequestId)return;
   console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
