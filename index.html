@@ -277,8 +277,13 @@ async function loadTerrain(){
    $('start').disabled=false;$('repair').disabled=false;$('pump').disabled=false;$('buildDam').disabled=false;
   }
   ahn.addTo(map);
-  if(isMissionSite())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
-  else map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
+  if(selected){
+   map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
+  }else{
+   const sw=proj4('EPSG:28992','EPSG:4326',[nextExtent[0],nextExtent[1]]);
+   const ne=proj4('EPSG:28992','EPSG:4326',[nextExtent[2],nextExtent[3]]);
+   map.fitBounds([[sw[1],sw[0]],[ne[1],ne[0]]]);
+  }
  }catch(e){
   if(requestId!==terrainRequestId)return;
   console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
