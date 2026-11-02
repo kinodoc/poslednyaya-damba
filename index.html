@@ -267,29 +267,38 @@ function advanceFloodSimulation(){
  }
  if(seconds<=pumpUntil)for(const i of wetCells){
   if(sourceCells.has(i)&&!breachClosed)continue;
-  waterDepth[i]=Math.max(0,waterDepth[i]-.003);if(waterDepth[i]<=.00005)wetCells.delete(i);
+  waterDepth[i]=Math.max(0,waterDepth[i]-.003);
+  if(waterDepth[i]<=.00005)wetCells.delete(i);
  }
  for(let sub=0;sub<2;sub++){
-  const active=floodActiveBuffer,touched=floodTouchedBuffer;active.length=0;touched.length=0;
+  const active=floodActiveBuffer,touched=[],touchedSet=new Set();
+  active.length=0;
   for(const i of wetCells)active.push(i);
   for(const i of active){
-   const depth=waterDepth[i];if(depth<=.00005)continue;
-   const head=grid[i]+depth,col=i%w,row=(i/w)|0;let sent=0;
-   // Four-neighbour stencil without allocating a temporary array for every wet cell.
+   const depth=waterDepth[i];
+   if(depth<=.00005)continue;
+   const head=grid[i]+depth,col=i%w,row=(i/w)|0;
+   let sent=0;
    for(let direction=0;direction<4;direction++){
     const j=direction===0?(col>0?i-1:-1):direction===1?(col<w-1?i+1:-1):direction===2?(row>0?i-w:-1):(row<h-1?i+w:-1);
-    // Existing TOP10NL water polygons are passable when AHN provides a valid terrain height.
-    // NoData cells remain impassable until a defensible water-surface/bed model is available.
     if(j<0||blockedCells.has(j)||polderCells.has(j)||(!breachClosed&&sourceCells.has(j)))continue;
     if(!validTerrainHeight(grid[j]))continue;
-    const diff=head-(grid[j]+waterDepth[j]);if(diff<=.002)continue;
-    const amount=Math.min(depth*.09,diff*.075,Math.max(0,depth-sent));if(amount<=.00005)continue;
-    if(flowDelta[i]===0)touched.push(i);if(flowDelta[j]===0)touched.push(j);
-    flowDelta[i]-=amount;flowDelta[j]+=amount;sent+=amount;
-   }
+    const diff=head-(grid[j]+waterDepth[j]);
+    if(diff<=.002)continue;
+    const amount=Math.min(depth*.09,diff*.075,Math.max(0,depth-sent));
+    if(amount<=.00005)continue;
+    if(!touchedSet.has(i)){touchedSet.add(i);touched.push(i);}
+    if(!touchedSet.has(j)){touchedSet.add(j);touched.push(j);}
+    flowDelta[i]-=amount;
+    flowDelta[j]+=amount;
+    sent+=amount;
    }
   }
-  for(const i of touched){waterDepth[i]=Math.max(0,waterDepth[i]+flowDelta[i]);flowDelta[i]=0;if(waterDepth[i]>.00005)wetCells.add(i);else wetCells.delete(i)}
+  for(const i of touched){
+   waterDepth[i]=Math.max(0,waterDepth[i]+flowDelta[i]);
+   flowDelta[i]=0;
+   if(waterDepth[i]>.00005)wetCells.add(i);else wetCells.delete(i);
+  }
  }
 }
 function drawWater(){
