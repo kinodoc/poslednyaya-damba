@@ -68,7 +68,7 @@ const sites=[
 ];
 let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=null,floodMask=null,waterOverlay=null,running=false,seconds=0,level=-0.2,funds=100,timer=null;
 let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMarker=null;
-let mission1953=null,terrainRequestId=0,terrainAbortController=null;
+let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0;
 function is1953(){return !!(selected&&selected.kind==='historic'&&selected.name.includes('1953'))}
 function updateMission1953(){
  if(!mission1953)return;
@@ -101,7 +101,7 @@ window.choose=i=>{
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
  cancelDamBuild();
- seconds=0;level=-0.2;mission1953=null;
+ seconds=0;level=-0.2;mission1953=null;floodSourceIndex=null;repairUntil=0;
  $('pause').disabled=true;
  $('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
  selected=sites[i];map.closePopup();
@@ -147,15 +147,24 @@ function floodFromLake(waterLevel){
  // Стартуем в ближайшей действительной ячейке AHN к точке условного пролома.
  // Далее вода проходит только по соседним ячейкам ниже заданного уровня.
  const [breachX,breachY]=rd(selected.lat,selected.lon);
- let source=-1,bestDistance=1500;
- for(let r=0;r<h;r++)for(let c=0;c<w;c++){
-  const i=r*w+c;
-  if(blockedCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
-  const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);
-  const distance=Math.hypot(x-breachX,y-breachY);
-  if(distance<bestDistance){bestDistance=distance;source=i}
+ let source=floodSourceIndex,bestDistance=Infinity;
+ if(source!==null&&blockedCells.has(source))source=null;
+ if(source===null){
+  let best=1500;
+  for(let r=0;r<h;r++)for(let c=0;c<w;c++){
+   const i=r*w+c;
+   if(blockedCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
+   const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);
+   const distance=Math.hypot(x-breachX,y-breachY);
+   if(distance<best){best=distance;bestDistance=distance;source=i}
+  }
+  floodSourceIndex=source;
+ }else{
+  const col=source%w,row=(source/w)|0;
+  const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+  bestDistance=Math.hypot(x-breachX,y-breachY);
  }
- if(source<0)return {mask,sourceDistance:null,sourceHeight:null,count:0};
+ if(source===null||source<0)return {mask,sourceDistance:null,sourceHeight:null,count:0};
  const sourceHeight=grid[source];
  mask[source]=1;queue[tail++]=source;
  while(head<tail){
@@ -216,7 +225,7 @@ async function loadTerrain(){
   let validCells=0;
   for(let i=0;i<nextGrid.length;i++)if(Number.isFinite(nextGrid[i])&&nextGrid[i]<1e20)validCells++;
   if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
-  geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;
+  geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;floodSourceIndex=null;
   $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Для сценария 1953 рельеф пока справочный: гидрологическая модель Зеландии не подключена.';
   if(is1953()){
    // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
@@ -263,14 +272,13 @@ function stopVisualEvent(){
 function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds}
 function tick(){
  if(!running)return;seconds++;
- if(selected&&selected.active){level+=.002;drawWater()}
+ if(selected&&selected.active){if(seconds>repairUntil)level+=.002;drawWater()}
  if(mission1953&&!mission1953.finished&&seconds>=180){
   mission1953.finished=true;
   const score=mission1953.evac+(mission1953.ship?35:0)+(mission1953.reinforced?25:0);
   mission1953.result=score>=60?'Успех: действия игрока заметно снизили последствия в выбранном игровом сценарии.':'Частичный успех: ресурсов и времени не хватило, чтобы защитить все участки.';
   updateMission1953();$('status').textContent=mission1953.result;running=false;clearInterval(timer);timer=null;$('pause').disabled=true;
  }
- render();
  if(funds>0&&seconds%10===0)funds--;
  if(mission1953&&!mission1953.finished&&seconds%30===0){
   const phase=Math.ceil(seconds/30);
@@ -278,6 +286,7 @@ function tick(){
   $('status').textContent='Фаза '+phase+'/6 · '+phases[phase-1]+' До завершения: '+(180-seconds)+' сек.';
  }
  else if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.';
+ render();
 }
 $('load').onclick=loadTerrain;
 $('evacuate').onclick=()=>action1953('evacuate',15);
@@ -317,7 +326,7 @@ $('start').onclick=()=>{
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
  if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
-$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём уровня воды приостановлен на 20 секунд.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
