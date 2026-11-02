@@ -102,6 +102,7 @@ window.choose=i=>{
  cancelDamBuild();
  seconds=0;level=-0.2;mission1953=null;
  $('pause').disabled=true;
+ $('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
  selected=sites[i];map.closePopup();
  if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}
  $('water').textContent='—';$('level').textContent='—';
@@ -117,7 +118,8 @@ window.choose=i=>{
   $('status').textContent='Выбрана точка: '+selected.name+'. Автоматически загружаю рельеф AHN…';
   loadTerrain();
  }else{
-  $('start').disabled=true;
+  $('start').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;
+  grid=null;geoImage=null;origin=null;resolution=null;extent=null;
   $('status').textContent='Точка выбрана: '+selected.name+'. Для этого района пока нет подключённой модели затопления; запуск отключён, чтобы не показывать фиктивную симуляцию.';
  }
 };
