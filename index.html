@@ -141,10 +141,27 @@ async function loadTerrain(){
   u.searchParams.set('coverageId','dtm_05m');u.searchParams.set('crs','http://www.opengis.net/def/crs/EPSG/0/28992');
   u.searchParams.set('format','image/tiff');u.searchParams.set('scalesize','x('+n+'),y('+n+')');
   u.searchParams.set('subset','x('+minX+','+maxX+')');u.searchParams.append('subset','y('+minY+','+maxY+')');
-  const response=await fetch(u);if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
-  const buffer=await response.arrayBuffer(),tiff=await GeoTIFF.fromArrayBuffer(buffer);
-  geoImage=await tiff.getImage();grid=await geoImage.readRasters({interleave:true});
-  origin=geoImage.getOrigin();resolution=geoImage.getResolution();extent=geoImage.getBoundingBox();
+  const response=await fetch(u);
+  if(!response.ok)throw Error('PDOK ответил HTTP '+response.status);
+  const contentType=(response.headers.get('content-type')||'').toLowerCase();
+  if(contentType.includes('xml')||contentType.includes('text')){
+   const detail=(await response.text()).slice(0,500).replace(/\\s+/g,' ');
+   throw Error('PDOK вернул не GeoTIFF ('+contentType+'): '+detail);
+  }
+  const buffer=await response.arrayBuffer();
+  if(buffer.byteLength<1024)throw Error('PDOK вернул подозрительно маленький файл: '+buffer.byteLength+' байт');
+  const tiff=await GeoTIFF.fromArrayBuffer(buffer);
+  const nextImage=await tiff.getImage();
+  const nextGrid=await nextImage.readRasters({interleave:true});
+  const nextOrigin=nextImage.getOrigin(),nextResolution=nextImage.getResolution(),nextExtent=nextImage.getBoundingBox();
+  const width=nextImage.getWidth(),height=nextImage.getHeight();
+  if(width!==n||height!==n)throw Error('Неверный размер растра: '+width+' × '+height+', ожидалось '+n+' × '+n);
+  if(nextGrid.length!==width*height)throw Error('Размер массива высот не совпадает с размером растра');
+  if(!nextOrigin||!nextResolution||!nextExtent||![...nextOrigin,...nextResolution,...nextExtent].every(Number.isFinite))throw Error('GeoTIFF содержит некорректную геопривязку');
+  let validCells=0;
+  for(let i=0;i<nextGrid.length;i++)if(Number.isFinite(nextGrid[i])&&nextGrid[i]<1e20)validCells++;
+  if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
+  geoImage=nextImage;grid=nextGrid;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;
   $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек. Для сценария 1953 рельеф пока используется для размещения объектов и дамб; гидрологическая модель Зеландии ещё не подключена.';
   $('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;ahn.addTo(map);
   if(is1953())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
