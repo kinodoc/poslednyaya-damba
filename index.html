@@ -348,15 +348,16 @@ async function findNearestRwsStation(lat,lon){
   const locations=Array.isArray(data.LocatieLijst)?data.LocatieLijst:[];
   const links=Array.isArray(data.AquoMetadataLocatieLijst)?data.AquoMetadataLocatieLijst:[];
   if(!metadata.length||!locations.length||!links.length)throw Error('каталог RWS не содержит полный набор метаданных, станций и связей');
+  const messageId=x=>x.MessageID??x.AquoMetadata_MessageID??x.AquoMetadataMessageID;
   const ids=new Set(metadata.filter(m=>{
    const a=m.AquoMetadata||m;
    return String(a.Compartiment&&a.Compartiment.Code||'').toUpperCase()==='OW'&&String(a.Grootheid&&a.Grootheid.Code||'').toUpperCase()==='WATHTE';
-  }).map(m=>m.MessageID).filter(Boolean));
+  }).map(messageId).filter(x=>x!==undefined&&x!==null));
   if(!ids.size)throw Error('в каталоге нет рядов WATHTE для поверхностной воды (OW)');
   const locationByCode=new Map(locations.map(x=>[String(x.Code||x.LocatieCode||''),x]));
   const valid=new Map();
   for(const link of links){
-   const id=link.MessageID||link.AquoMetadataMessageID;
+   const id=messageId(link);
    const code=link.LocatieCode||link.Code||link.Locatie&&link.Locatie.Code;
    if(ids.has(id)&&code&&locationByCode.has(String(code)))valid.set(String(code),locationByCode.get(String(code)));
   }
