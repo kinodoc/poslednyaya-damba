@@ -231,11 +231,11 @@ async function loadTerrain(){
  try{
   const n=650,half=32500;
   let minX=115000,maxX=180000,minY=515000,maxY=580000,regionLabel='IJsselmeer / Breezanddijk';
-  if(isMissionSite()){
+  if(selected&&selected.active){
    const [cx,cy]=rd(selected.lat,selected.lon);
    minX=Math.round(cx-half);maxX=Math.round(cx+half);
    minY=Math.round(cy-half);maxY=Math.round(cy+half);
-   regionLabel='локальный участок Зеландии у '+selected.name.split(' — ')[0];
+   regionLabel='локальный участок AHN у '+selected.name.split(' — ')[0];
   }
   const u=new URL('https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0');
   u.searchParams.set('service','WCS');u.searchParams.set('version','2.0.1');u.searchParams.set('request','GetCoverage');
