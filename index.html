@@ -139,7 +139,10 @@ function cancelDamBuild(){
  $('buildDam').classList.remove('main')
 }
 function inLake(x,y){let inside=false;for(let i=0,j=lakeRD.length-1;i<lakeRD.length;j=i++){const a=lakeRD[i],b=lakeRD[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
-function floodFromLake(waterLevel){const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;const valid=i=>!blockedCells.has(i)&&Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;for(let r=0;r<h;r++){for(let c=0;c<w;c++){const i=r*w+c;if(!valid(i))continue;const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);if(inLake(x-resolution[0],y)||inLake(x+resolution[0],y)||inLake(x,y-resolution[1])||inLake(x,y+resolution[1])){mask[i]=1;queue[tail++]=i}}}
+function floodFromLake(waterLevel){const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;const valid=i=>!blockedCells.has(i)&&Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;
+// Источник задаётся у Breezanddijk, а не по всему периметру IJsselmeer: иначе модель одновременно подавала бы воду через всю береговую линию.
+const [breachX,breachY]=rd(selected.lat,selected.lon),sourceRadius=2500;
+for(let r=0;r<h;r++){for(let c=0;c<w;c++){const i=r*w+c;if(!valid(i))continue;const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);const nearBreach=Math.hypot(x-breachX,y-breachY)<=sourceRadius;if(nearBreach&&inLake(x,y)){mask[i]=1;queue[tail++]=i}}}
 while(head<tail){const p=queue[head++],c=p%w,r=(p/w)|0,ns=[c>0?p-1:-1,c<w-1?p+1:-1,r>0?p-w:-1,r<h-1?p+w:-1];for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}}return mask}
 function drawWater(){if(!grid||!selected)return;floodMask=floodFromLake(level);const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
 const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м'}
@@ -231,7 +234,7 @@ function tick(){
   mission1953.finished=true;
   const score=mission1953.evac+(mission1953.ship?35:0)+(mission1953.reinforced?25:0);
   mission1953.result=score>=60?'Успех: действия игрока заметно снизили последствия в выбранном игровом сценарии.':'Частичный успех: ресурсов и времени не хватило, чтобы защитить все участки.';
-  updateMission1953();$('status').textContent=mission1953.result;running=false;clearInterval(timer);$('pause').disabled=true;
+  updateMission1953();$('status').textContent=mission1953.result;running=false;clearInterval(timer);timer=null;$('pause').disabled=true;
  }
  render();
  if(funds>0&&seconds%10===0)funds--;
@@ -279,6 +282,6 @@ $('start').onclick=()=>{
  if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Прорыв у Breezanddijk открыт: вода из Вадденского моря поступает в IJsselmeer.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
-$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;cancelDamBuild();seconds=0;level=0;funds=100;selected=null;mission1953=null;$('history1953').style.display='none';blockedCells.clear();damLayers.forEach(x=>map.removeLayer(x));damLayers=[];if(waterOverlay)map.removeLayer(waterOverlay);$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
