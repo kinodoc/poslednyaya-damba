@@ -162,7 +162,7 @@ function rasterizeWaterFeatures(features,width,height,gridOrigin,gridResolution,
  const toRD=coord=>{const x=Number(coord[0]),y=Number(coord[1]);if(!Number.isFinite(x)||!Number.isFinite(y))return null;if(Math.abs(x)<=180&&Math.abs(y)<=90)return proj4('EPSG:4326','EPSG:28992',[x,y]);if(x< -10000||x>310000||y<280000||y>630000)return null;return [x,y]};
  for(const feature of features){
   const props=feature&&feature.properties||{};
-  if(sourceOnly&&!/\\b(zee|meer|plas)\\b/i.test(String(props.typewater||'')))continue;
+  if(sourceOnly&&!/\b(zee|meer|plas)\b/i.test(String(props.typewater||'')))continue;
   const g=feature&&feature.geometry;if(!g)continue;
   const polygons=g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[];
   for(const rings of polygons){
