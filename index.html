@@ -186,14 +186,38 @@ function rasterizeWaterFeatures(features,width,height,gridOrigin,gridResolution,
    const projected=rings.map(ring=>ring.map(toRD).filter(Boolean)).filter(ring=>ring.length>=4);
    if(!projected.length)continue;
    let minY=Infinity,maxY=-Infinity;
-   for(const ring of projected)for(const p of ring){minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1])}
-   const r0=Math.max(0,Math.ceil((oy-maxY)/ry-.5)),r1=Math.min(height-1,Math.floor((oy-minY)/ry-.5));
-   for(let row=r0;row<=r1;row++){
-    const y=oy-(row+.5)*ry,intersections=[];
-    for(const pts of projected)for(let k=0,j=pts.length-1;k<pts.length;j=k++){
-     const a=pts[j],b=pts[k];
-     if((a[1]>y)!==(b[1]>y))intersections.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1]));
+   const edges=[];
+   for(const ring of projected){
+    for(const point of ring){minY=Math.min(minY,point[1]);maxY=Math.max(maxY,point[1])}
+    for(let k=0,j=ring.length-1;k<ring.length;j=k++){
+     const a=ring[j],b=ring[k];
+     if(a[1]===b[1])continue;
+     edges.push({x:a[0],y:a[1],dxdy:(b[0]-a[0])/(b[1]-a[1]),minY:Math.min(a[1],b[1]),maxY:Math.max(a[1],b[1])});
     }
+   }
+   if(!edges.length)continue;
+   const r0=Math.max(0,Math.ceil((oy-maxY)/ry-.5)),r1=Math.min(height-1,Math.floor((oy-minY)/ry-.5));
+   if(r0>r1)continue;
+   const rowCount=r1-r0+1,startBuckets=Array.from({length:rowCount},()=>[]),endBuckets=Array.from({length:rowCount+1},()=>[]);
+   for(const edge of edges){
+    const start=Math.max(r0,Math.floor((oy-edge.maxY)/ry-.5)+1);
+    const end=Math.min(r1,Math.floor((oy-edge.minY)/ry-.5));
+    if(start<=end){startBuckets[start-r0].push(edge);endBuckets[end-r0+1].push(edge)}
+   }
+   const active=[],activeIndex=new Map(),intersections=[];
+   for(let row=r0;row<=r1;row++){
+    const offset=row-r0;
+    for(const edge of endBuckets[offset]){
+     const index=activeIndex.get(edge);
+     if(index===undefined)continue;
+     const last=active.pop();
+     if(index<active.length){active[index]=last;activeIndex.set(last,index)}
+     activeIndex.delete(edge);
+    }
+    for(const edge of startBuckets[offset]){activeIndex.set(edge,active.length);active.push(edge)}
+    if(active.length<2)continue;
+    const y=oy-(row+.5)*ry;intersections.length=0;
+    for(const edge of active)intersections.push(edge.x+(y-edge.y)*edge.dxdy);
     intersections.sort((a,b)=>a-b);
     for(let k=0;k+1<intersections.length;k+=2){
      const left=intersections[k],right=intersections[k+1],c0=Math.max(0,Math.ceil((left-ox)/rx-.5)),c1=Math.min(width-1,Math.floor((right-ox)/rx-.5));
