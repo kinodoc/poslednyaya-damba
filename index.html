@@ -3,12 +3,14 @@
 <title>Последняя дамба — модель рельефа</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,Arial;color:#19313e;background:#edf2f3}#app{height:100%;display:flex;flex-direction:column}
-header{background:#102d3d;color:#fff;padding:11px 14px;display:flex;justify-content:space-between;align-items:center}h1{font-size:17px;margin:0}header small{font-size:10px;color:#c4d8df}
-#map{flex:1;min-height:260px}.panel{background:#fff;padding:10px 12px;box-shadow:0 -2px 12px #1233}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.stat{background:#eff4f5;border-radius:8px;text-align:center;padding:6px 2px}.stat b{display:block;font-size:17px}.stat span{font-size:9px;color:#637783}
-.buttons{display:flex;flex-wrap:wrap;gap:6px}button{border:0;border-radius:8px;padding:9px 10px;background:#e7eff1;color:#173342;font-weight:650;font-size:12px}button.main{background:#087e8b;color:#fff}button:disabled{opacity:.5}
-#status{font-size:11px;color:#455e6a;min-height:28px;margin:4px 0 7px}.note{font-size:9px;color:#71818a;line-height:1.35;margin-top:7px}.legend{background:white;padding:7px 9px;border-radius:7px;box-shadow:0 1px 7px #0002;font-size:11px}
-@media(min-width:800px){#app{max-width:1200px;height:96vh;margin:auto}header,.panel{padding:14px 20px}}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;color:#dceaf0;background:#071923}#app{height:100%;display:flex;flex-direction:column;max-width:1500px;margin:auto;background:#0b202b;box-shadow:0 0 45px #0005}
+header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #31505c}h1{font-size:18px;letter-spacing:.12em;margin:0;font-weight:800}header small{font-size:10px;color:#a8c3ce;line-height:1.5;text-align:right}
+#map{flex:1;min-height:260px;background:#a9c5c9}.panel{background:linear-gradient(180deg,#102a37,#0c202b);padding:12px 14px;box-shadow:0 -5px 24px #06131c88;border-top:1px solid #31505c}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.stat{background:#173644;border:1px solid #2a4c5a;border-radius:10px;text-align:center;padding:8px 3px}.stat b{display:block;font-size:19px;color:#f2fbff;font-variant-numeric:tabular-nums}.stat span{font-size:9px;color:#9bb7c2;letter-spacing:.07em}
+.buttons{display:flex;flex-wrap:wrap;gap:7px}button{border:1px solid #355565;border-radius:8px;padding:10px 12px;background:#1a3a49;color:#e3f2f7;font-weight:650;font-size:12px;transition:background .15s,border-color .15s}button:hover:not(:disabled){background:#285366;border-color:#5c899b}button.main{background:#087e8b;border-color:#16a6b1;color:#fff}button.main:hover:not(:disabled){background:#0999a5}button:disabled{opacity:.38;cursor:not-allowed}
+#status{font-size:12px;color:#c2d7df;min-height:30px;margin:4px 0 8px;line-height:1.45}.note{font-size:10px;color:#829da8;line-height:1.45;margin-top:9px}.legend{background:#102c3a;color:#e2f0f5;padding:8px 10px;border:1px solid #365565;border-radius:8px;box-shadow:0 2px 12px #0004;font-size:11px;line-height:1.55}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#102b39;color:#e7f3f7}.leaflet-popup-content button{margin-top:6px}
+@media(min-width:800px){#app{height:100vh}header,.panel{padding:14px 22px}.panel{padding-bottom:16px}.stats{max-width:780px}.buttons{gap:9px}}
+@media(max-width:520px){h1{font-size:15px}.stats{gap:5px}.stat b{font-size:16px}.stat span{font-size:8px}.panel{padding:9px}.note{font-size:9px}}
 </style></head><body><div id="app">
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
