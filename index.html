@@ -364,8 +364,19 @@ async function loadTerrain(){
   if(validCells<100)throw Error('В растре слишком мало действительных высот: '+validCells);
   $('status').textContent='AHN получен. Загружаю официальные водные полигоны TOP10NL…';
   const waterFeatures=await loadWaterFeatures(minX,minY,maxX,maxY,controller.signal);if(requestId!==terrainRequestId)return;
-  const nextWaterMask=rasterizeWaterFeatures(waterFeatures,width,height,nextOrigin,nextResolution);const sourceProfile=selected&&(selected.scenario||selected.kind)||'general';const nextSourceWaterMask=rasterizeWaterFeatures(waterFeatures,width,height,nextOrigin,nextResolution,true,sourceProfile);let waterCells=0;for(let i=0;i<nextWaterMask.length;i++)if(nextWaterMask[i])waterCells++;
+  const nextWaterMask=rasterizeWaterFeatures(waterFeatures,width,height,nextOrigin,nextResolution);const sourceProfile=selected&&(selected.scenario||selected.kind)||'general';const nextSourceWaterMask=rasterizeWaterFeatures(waterFeatures,width,height,nextOrigin,nextResolution,true,sourceProfile);let waterCells=0,sourceWaterCells=0,sourceCandidates=0;for(let i=0;i<nextWaterMask.length;i++){if(nextWaterMask[i])waterCells++;if(nextSourceWaterMask[i])sourceWaterCells++}
   if(waterCells<5)throw Error('Водные полигоны TOP10NL не пересекли сетку AHN; проверь CRS и геопривязку');
+  if(!selected)throw Error('Не выбран сценарий для проверки водного источника');
+  const [breachX,breachY]=proj4('EPSG:4326','EPSG:28992',[selected.lon,selected.lat]),sourceSearchLimit=selected.active?1800:2200;
+  for(let row=1;row<height-1;row++)for(let col=1;col<width-1;col++){
+   const i=row*width+col,z=nextGrid[i];if(!validNextHeight(z))continue;
+   const x=nextOrigin[0]+(col+.5)*nextResolution[0],y=nextOrigin[1]+(row+.5)*nextResolution[1];
+   if(selected.active&&y>=breachY)continue;
+   if(Math.hypot(x-breachX,y-breachY)>sourceSearchLimit)continue;
+   if(nextSourceWaterMask[i-1]||nextSourceWaterMask[i+1]||nextSourceWaterMask[i-width]||nextSourceWaterMask[i+width])sourceCandidates++;
+  }
+  if(sourceCandidates===0)throw Error('AHN и TOP10NL загружены, но рядом с выбранной точкой нет подходящего берега/водного источника в радиусе '+sourceSearchLimit+' м. Проверь точку сценария и совпадение CRS.');
+
 
   geoImage=nextImage;grid=nextGrid;terrainNoData=nextNoData;origin=nextOrigin;resolution=nextResolution;extent=nextExtent;waterMask=nextWaterMask;sourceWaterMask=nextSourceWaterMask;floodSourceIndex=null;updatePolderButtons();
   $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. AHN используется для расчёта воды; водных ячеек TOP10NL '+waterCells.toLocaleString('ru-RU')+'.';
