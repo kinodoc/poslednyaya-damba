@@ -189,9 +189,9 @@ function advanceFloodSimulation(){
  if(!simulationReady||!waterDepth||!flowDelta)return;
  const w=geoImage.getWidth(),h=geoImage.getHeight();
  const sourceHead=level,sourceDepth=Math.max(0,sourceHead-simulationSourceHeight);
- if(seconds>repairUntil){waterDepth[floodSourceIndex]+=Math.min(.025,Math.max(.001,sourceDepth*.012));wetCells.add(floodSourceIndex)}
+ if(seconds>repairUntil&&sourceDepth>.001){waterDepth[floodSourceIndex]+=Math.min(.025,sourceDepth*.012);wetCells.add(floodSourceIndex)}
  // Откачка удаляет часть накопленной воды из низин, а не просто меняет цифру уровня.
- if(seconds<=pumpUntil){for(const i of wetCells){waterDepth[i]=Math.max(0,waterDepth[i]-.001);if(waterDepth[i]<=.002)wetCells.delete(i)}}
+ if(seconds<=pumpUntil){for(const i of wetCells){if(i===floodSourceIndex)continue;waterDepth[i]=Math.max(0,waterDepth[i]-.001);if(waterDepth[i]<=.002)wetCells.delete(i)}}
  for(let sub=0;sub<2;sub++){
   const active=Array.from(wetCells),touched=[];
   for(const i of active){
