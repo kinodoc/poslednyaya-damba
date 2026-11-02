@@ -5,9 +5,9 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const solverMatch = html.match(/function advanceFloodSimulation\\(\\)\\{[\\s\\S]*?\\n\\}\\nfunction drawWater\\(\\)/);
+const solverMatch = html.match(/function advanceFloodSimulation\(\)\{[\s\S]*?\n\}\nfunction drawWater\(\)/);
 assert.ok(solverMatch, 'advanceFloodSimulation must exist');
-const solverSource = solverMatch[0].replace(/\\nfunction drawWater\\(\\)$/, '');
+const solverSource = solverMatch[0].replace(/\nfunction drawWater\(\)$/, '');
 
 function makeSimulation(options = {}) {
   const width = 3;
@@ -100,12 +100,12 @@ test('an open breach replenishes water from the boundary level', () => {
 });
 
 test('the inline browser script parses and every referenced UI id exists', () => {
-  const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)]
+  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1]).filter(script => script.trim());
   assert.ok(scripts.length > 0);
   for (const script of scripts) new vm.Script(script);
 
-  const ids = new Set([...html.matchAll(/\\bid=["']([^"']+)["']/g)].map(match => match[1]));
-  const references = new Set([...html.matchAll(/\\$\\(["']([^"']+)["']\\)/g)].map(match => match[1]));
+  const ids = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]));
+  const references = new Set([...html.matchAll(/\$\(["']([^"']+)["']\)/g)].map(match => match[1]));
   for (const id of references) assert.ok(ids.has(id), 'missing UI element: ' + id);
 });
