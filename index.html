@@ -211,7 +211,7 @@ async function loadTerrain(){
   if(buffer.byteLength<1024)throw Error('PDOK вернул подозрительно маленький файл: '+buffer.byteLength+' байт');
   const tiff=await GeoTIFF.fromArrayBuffer(buffer);
   const nextImage=await tiff.getImage();
-  const nextGrid=await nextImage.readRasters({interleave:true});
+  const nextGrid=await nextImage.readRasters({interleave:true,signal:controller.signal});
   if(requestId!==terrainRequestId)return;
   const nextOrigin=nextImage.getOrigin(),nextResolution=nextImage.getResolution(),nextExtent=nextImage.getBoundingBox();
   const width=nextImage.getWidth(),height=nextImage.getHeight();
