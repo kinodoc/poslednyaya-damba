@@ -3,7 +3,7 @@
 <title>Последняя дамба — модель рельефа</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;color:#dceaf0;background:#071923}#app{height:100%;display:flex;flex-direction:column;max-width:1500px;margin:auto;background:#0b202b;box-shadow:0 0 45px #0005}
+*{box-sizing:border-box}@keyframes waterShimmer{0%,100%{filter:saturate(1.05) brightness(.96)}50%{filter:saturate(1.32) brightness(1.08)}}.water-surface{animation:waterShimmer 3.2s ease-in-out infinite;will-change:filter}.storm-cloud{width:58px;height:54px;animation:stormBob 2.6s ease-in-out infinite;filter:drop-shadow(0 3px 4px #102b3b88)}.storm-cloud svg{width:100%;height:100%}@keyframes stormBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;color:#dceaf0;background:#071923}#app{height:100%;display:flex;flex-direction:column;max-width:1500px;margin:auto;background:#0b202b;box-shadow:0 0 45px #0005}
 header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #31505c}h1{font-size:18px;letter-spacing:.12em;margin:0;font-weight:800}header small{font-size:10px;color:#a8c3ce;line-height:1.5;text-align:right}
 #map{flex:1;min-height:260px;background:#a9c5c9}.panel{background:linear-gradient(180deg,#102a37,#0c202b);padding:12px 14px;box-shadow:0 -5px 24px #06131c88;border-top:1px solid #31505c}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.stat{background:#173644;border:1px solid #2a4c5a;border-radius:10px;text-align:center;padding:8px 3px}.stat b{display:block;font-size:19px;color:#f2fbff;font-variant-numeric:tabular-nums}.stat span{font-size:9px;color:#9bb7c2;letter-spacing:.07em}
 .buttons{display:flex;flex-wrap:wrap;gap:7px}button{border:1px solid #355565;border-radius:8px;padding:10px 12px;background:#1a3a49;color:#e3f2f7;font-weight:650;font-size:12px;transition:background .15s,border-color .15s}button:hover:not(:disabled){background:#285366;border-color:#5c899b}button.main{background:#087e8b;border-color:#16a6b1;color:#fff}button.main:hover:not(:disabled){background:#0999a5}button:disabled{opacity:.38;cursor:not-allowed}
@@ -75,7 +75,7 @@ let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=nul
 let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMarker=null;
 let polderBuildMode=false,polderPoints=[],polderPreview=null,polderCells=new Set(),polders=[],selectedPolder=null,polderLayers=[];
 let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null,pumpUntil=0,floodedAreaKm2=0,gameFinished=false;
-let waterDepth=null,flowDelta=null,wetCells=new Set(),simulationReady=false,simulationSourceHeight=null,simulationSourceIsCoast=false,terrainNoData=null;
+let waterDepth=null,flowDelta=null,wetCells=new Set(),simulationReady=false,simulationSourceHeight=null,simulationSourceIsCoast=false,terrainNoData=null,breachClosed=false;
 const protectedTargets=[{name:'Den Oever',lat:52.927,lon:5.03,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity,population:18000,evacuated:0,lost:0,everFlooded:false},{name:'Makkum',lat:53.055,lon:5.4,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Medemblik',lat:52.771,lon:5.105,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity},{name:'Enkhuizen',lat:52.704,lon:5.29,status:'safe',distance:Infinity,marker:null,zone:null,defenseUntil:0,protectionLevel:-Infinity}];
 let selectedTarget=null,totalLost=0,totalEvacuated=0;
 function isMissionSite(){return !!(selected&&selected.scenario)}
@@ -121,7 +121,7 @@ window.choose=i=>{
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
  clearBuiltDams();clearSourceMarker();resetProtectedTargets();
- seconds=0;level=-0.2;funds=100;mission1953=null;floodSourceIndex=null;waterDepth=null;flowDelta=null;wetCells=new Set();simulationReady=false;simulationSourceHeight=null;simulationSourceIsCoast=false;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;render();
+ seconds=0;level=-0.2;funds=100;mission1953=null;floodSourceIndex=null;waterDepth=null;flowDelta=null;wetCells=new Set();simulationReady=false;simulationSourceHeight=null;simulationSourceIsCoast=false;breachClosed=false;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;render();
  grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;terrainNoData=null;
  $('pause').disabled=true;
  $('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;$('load').disabled=false;
@@ -174,48 +174,45 @@ function selectProtectedTarget(target){selectedTarget=target;protectedTargets.fo
 function inLake(x,y){let inside=false;for(let i=0,j=lakeRD.length-1;i<lakeRD.length;j=i++){const a=lakeRD[i],b=lakeRD[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
 function initializeFloodSimulation(){
  if(!grid||!geoImage||!selected)return false;
- const w=geoImage.getWidth(),h=geoImage.getHeight(),n=w*h;
- waterDepth=new Float32Array(n);flowDelta=new Float32Array(n);wetCells=new Set();floodSourceIndex=null;simulationReady=false;simulationSourceIsCoast=false;
- const [breachX,breachY]=rd(selected.lat,selected.lon);let bestCoast=4000,coastSource=-1,bestFallback=4000,fallbackSource=-1;
- const valid=validTerrainHeight;
+ const w=geoImage.getWidth(),h=geoImage.getHeight();
+ waterDepth=new Float32Array(w*h);flowDelta=new Float32Array(w*h);wetCells=new Set();floodSourceIndex=null;simulationReady=false;simulationSourceIsCoast=false;breachClosed=false;
+ const [bx,by]=rd(selected.lat,selected.lon),coastLimit=selected.active?1200:1800,fallbackLimit=selected.active?500:900;
+ let coastDist=coastLimit,coast=-1,fallbackDist=fallbackLimit,fallback=-1;
  for(let row=1;row<h-1;row++)for(let col=1;col<w-1;col++){
-  const i=row*w+col,z=grid[i];if(blockedCells.has(i)||polderCells.has(i)||!valid(z))continue;
-  const [x,y]=cellCenterRD(col,row);
-  // RD northing grows north. For Afsluitdijk, search on the Waddenzee side.
-  if(selected.active&&y<=breachY)continue;
-  const d=Math.hypot(x-breachX,y-breachY);if(d>4000)continue;
-  if(d<bestFallback){bestFallback=d;fallbackSource=i}
-  // AHN DTM has no terrain heights over open water. A valid cell beside
-  // no-data is therefore a better shoreline seed than an arbitrary dike cell.
-  const coastEdge=!valid(grid[i-1])||!valid(grid[i+1])||!valid(grid[i-w])||!valid(grid[i+w]);
-  if(coastEdge&&d<bestCoast){bestCoast=d;coastSource=i}
+  const i=row*w+col,z=grid[i];if(blockedCells.has(i)||polderCells.has(i)||!validTerrainHeight(z))continue;
+  const [x,y]=cellCenterRD(col,row);if(selected.active&&y<=by)continue;
+  const d=Math.hypot(x-bx,y-by);if(d>coastLimit)continue;
+  if(d<fallbackDist){fallbackDist=d;fallback=i}
+  const edge=!validTerrainHeight(grid[i-1])||!validTerrainHeight(grid[i+1])||!validTerrainHeight(grid[i-w])||!validTerrainHeight(grid[i+w]);
+  if(edge&&d<coastDist){coastDist=d;coast=i}
  }
- const source=coastSource>=0?coastSource:fallbackSource;
- if(source<0)return false;
- simulationSourceIsCoast=coastSource>=0;
- floodSourceIndex=source;simulationSourceHeight=grid[source];level=simulationSourceHeight+.03;
- waterDepth[source]=.03;wetCells.add(source);simulationReady=true;return true;
+ const source=coast>=0?coast:fallback;if(source<0)return false;
+ simulationSourceIsCoast=coast>=0;floodSourceIndex=source;simulationSourceHeight=grid[source];
+ level=-0.2;const depth=Math.max(0,level-simulationSourceHeight);waterDepth[source]=depth;if(depth>.00005)wetCells.add(source);
+ simulationReady=true;return true;
 }
 function advanceFloodSimulation(){
  if(!simulationReady||!waterDepth||!flowDelta)return;
  const w=geoImage.getWidth(),h=geoImage.getHeight();
- const sourceHead=level,sourceDepth=Math.max(0,sourceHead-simulationSourceHeight);
- if(seconds>repairUntil&&sourceDepth>.001){waterDepth[floodSourceIndex]+=Math.min(.025,sourceDepth*.012);wetCells.add(floodSourceIndex)}
- // Откачка удаляет часть накопленной воды из низин, а не просто меняет цифру уровня.
- if(seconds<=pumpUntil){for(const i of wetCells){if(i===floodSourceIndex)continue;waterDepth[i]=Math.max(0,waterDepth[i]-.001);if(waterDepth[i]<=.002)wetCells.delete(i)}}
+ if(!breachClosed){
+  const d=Math.max(0,level-simulationSourceHeight);waterDepth[floodSourceIndex]=d;
+  if(d>.00005)wetCells.add(floodSourceIndex);else wetCells.delete(floodSourceIndex);
+ }
+ if(seconds<=pumpUntil)for(const i of Array.from(wetCells)){
+  if(i===floodSourceIndex&&!breachClosed)continue;
+  waterDepth[i]=Math.max(0,waterDepth[i]-.003);if(waterDepth[i]<=.00005)wetCells.delete(i);
+ }
  for(let sub=0;sub<2;sub++){
   const active=Array.from(wetCells),touched=[];
   for(const i of active){
    const depth=waterDepth[i];if(depth<=.00005)continue;
-   const head=grid[i]+depth,col=i%w,row=(i/w)|0;
-   const ns=[col>0?i-1:-1,col<w-1?i+1:-1,row>0?i-w:-1,row<h-1?i+w:-1];let sent=0;
+   const head=grid[i]+depth,col=i%w,row=(i/w)|0,ns=[col>0?i-1:-1,col<w-1?i+1:-1,row>0?i-w:-1,row<h-1?i+w:-1];let sent=0;
    for(const j of ns){
-    if(j<0||blockedCells.has(j)||polderCells.has(j))continue;
-    const zj=grid[j];if(!validTerrainHeight(zj))continue;
-    const difference=head-(zj+waterDepth[j]);if(difference<=.002)continue;
-    const amount=Math.min(depth*.075,difference*.045,Math.max(0,depth-sent));if(amount<=.00005)continue;
-    if(flowDelta[i]===0)touched.push(i);if(flowDelta[j]===0)touched.push(j);
-    flowDelta[i]-=amount;flowDelta[j]+=amount;sent+=amount;
+    if(j<0||blockedCells.has(j)||polderCells.has(j)||(!breachClosed&&j===floodSourceIndex))continue;
+    if(!validTerrainHeight(grid[j]))continue;
+    const diff=head-(grid[j]+waterDepth[j]);if(diff<=.002)continue;
+    const amount=Math.min(depth*.09,diff*.075,Math.max(0,depth-sent));if(amount<=.00005)continue;
+    if(flowDelta[i]===0)touched.push(i);if(flowDelta[j]===0)touched.push(j);flowDelta[i]-=amount;flowDelta[j]+=amount;sent+=amount;
    }
   }
   for(const i of touched){waterDepth[i]=Math.max(0,waterDepth[i]+flowDelta[i]);flowDelta[i]=0;if(waterDepth[i]>.00005)wetCells.add(i);else wetCells.delete(i)}
@@ -226,18 +223,17 @@ function drawWater(){
  const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h);let count=0;
  for(const i of wetCells)if(waterDepth[i]>.00005){mask[i]=1;count++}
  floodMask=mask;assessProtectedTargets(mask);
- const displayMask=mask.slice(),canvas=document.createElement('canvas');
- for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;
+ const displayMask=mask.slice(),canvas=document.createElement('canvas');for(const p of polders)if(!p.drained)for(const i of p.cells)displayMask[i]=1;
  canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);
- for(let i=0;i<displayMask.length;i++){const p=i*4;if(mask[i]){const d=waterDepth[i];im.data[p]=5;im.data[p+1]=Math.round(92+Math.min(75,d*45));im.data[p+2]=Math.round(165+Math.min(65,d*35));im.data[p+3]=Math.min(225,75+d*900)}else if(displayMask[i]){im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}
- ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
- const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];
- waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);
+ for(let i=0;i<displayMask.length;i++){const p=i*4;if(mask[i]){const d=waterDepth[i],x=i%w,y=(i/w)|0,sh=.5+.5*Math.sin(x*.055+y*.031-seconds*.34),br=.88+sh*.18;im.data[p]=Math.round(4*br);im.data[p+1]=Math.round((88+Math.min(78,d*48))*br);im.data[p+2]=Math.round((158+Math.min(68,d*38))*br);im.data[p+3]=Math.min(232,82+d*850)}else if(displayMask[i]){im.data[p]=55;im.data[p+1]=145;im.data[p+2]=105;im.data[p+3]=150}else if(polderCells.has(i)){im.data[p]=93;im.data[p+1]=157;im.data[p+2]=111;im.data[p+3]=175}}
+ ctx.putImageData(im,0,0);
+ const c=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])],bounds=[[c[0][1],c[0][0]],[c[1][1],c[1][0]]],url=canvas.toDataURL();
+ if(waterOverlay)waterOverlay.setUrl(url);else waterOverlay=L.imageOverlay(url,bounds,{opacity:1,interactive:false,className:'water-surface'}).addTo(map);
  floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
- const col=floodSourceIndex%w,row=(floodSourceIndex/w)|0,[x,y]=cellCenterRD(col,row),ll=proj4('EPSG:28992','EPSG:4326',[x,y]);
- const breach=rd(selected.lat,selected.lon),label='Пролом · '+(simulationSourceIsCoast?'береговая ячейка у no-data':'приближённая ячейка AHN')+' · '+Math.round(Math.hypot(x-breach[0],y-breach[1]))+' м · '+simulationSourceHeight.toFixed(2)+' м NAP';
+ const col=floodSourceIndex%w,row=(floodSourceIndex/w)|0,[x,y]=cellCenterRD(col,row),ll=proj4('EPSG:28992','EPSG:4326',[x,y]),breach=rd(selected.lat,selected.lon);
+ const label='Пролом · '+(simulationSourceIsCoast?'береговая ячейка у no-data':'приближённая ячейка AHN')+' · '+Math.round(Math.hypot(x-breach[0],y-breach[1]))+' м · '+simulationSourceHeight.toFixed(2)+' м NAP';
  if(sourceMarker){sourceMarker.setLatLng([ll[1],ll[0]]);sourceMarker.setTooltipContent(label)}else sourceMarker=L.circleMarker([ll[1],ll[0]],{radius:7,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map).bindTooltip(label);
- $('status').textContent='Динамический расчёт AHN: мокрых ячеек '+wetCells.size.toLocaleString('ru-RU')+' · затоплено '+count.toLocaleString('ru-RU')+'. Поток зависит от рельефа и перепада уровня воды.';
+ $('status').textContent='AHN: '+count.toLocaleString('ru-RU')+' ячеек с водой · источник '+(breachClosed?'закрыт':'открыт')+'.';
 }
 async function loadTerrain(){
  floodSourceIndex=null;
@@ -326,19 +322,10 @@ async function loadTerrain(){
 let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null,missionImpactLayer=null,missionWaveLayers=[],missionActionMarkers=[];
 function startVisualEvent(){
  stopVisualEvent();eventPhase=0;
- const p=[selected.lat,selected.lon],direction=(selected.lon<4.35?1:-1);
- const stormStart=[p[0]+.42,p[1]-.62*direction];
- stormLayer=L.marker(stormStart,{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:38px;filter:drop-shadow(0 2px 3px #123)">🌧️</div>',iconSize:[44,44],iconAnchor:[22,22]})}).addTo(map);
- breachPulse=L.circleMarker(p,{radius:8,color:'#ffe58a',weight:3,fillColor:'#ff6b35',fillOpacity:.9}).addTo(map);
- surgeLayers=[0,1,2].map((v)=>L.polyline([[p[0]+.22+v*.09,p[1]-.5*direction],[p[0]-.22+v*.09,p[1]+.5*direction]],{color:'#55c9ed',weight:3-v*.5,opacity:.72-v*.15,dashArray:'10 9',interactive:false}).addTo(map));
- eventTimer=setInterval(()=>{
-  eventPhase++;
-  const t=(eventPhase%60)/60;
-  stormLayer.setLatLng([stormStart[0]-.42*t,stormStart[1]+.62*direction*t]);
-  surgeLayers.forEach((layer,i)=>{const shift=t*.34;layer.setLatLngs([[p[0]+.22+i*.09-shift,p[1]-.5*direction+shift*direction],[p[0]-.22+i*.09-shift,p[1]+.5*direction+shift*direction]]);layer.setStyle({opacity:.72-i*.15})});
-  breachPulse.setRadius(8+(eventPhase%8)*1.6);
-  breachPulse.setStyle({fillOpacity:.45+((eventPhase%8)/18),color:eventPhase%2?'#fff0a0':'#ff9b45'});
- },300);
+ const p=[selected.lat,selected.lon],direction=(selected.lon<4.35?1:-1),stormStart=[p[0]+.42,p[1]-.62*direction];
+ const cloud='<div class="storm-cloud"><svg viewBox="0 0 64 54" aria-hidden="true"><path d="M17 34h31a10 10 0 0 0 0-20 16 16 0 0 0-30-2 11 11 0 0 0-1 22Z" fill="#dce8ed" stroke="#45616d" stroke-width="2"/><path d="m20 40-4 9m17-9-4 9m17-9-4 9" stroke="#63c7e8" stroke-width="3" stroke-linecap="round"/></svg></div>';
+ stormLayer=L.marker(stormStart,{interactive:false,icon:L.divIcon({className:'storm-icon',html:cloud,iconSize:[58,54],iconAnchor:[29,27]})}).addTo(map);
+ eventTimer=setInterval(()=>{eventPhase++;const t=(eventPhase%120)/120;stormLayer.setLatLng([stormStart[0]-.42*t,stormStart[1]+.62*direction*t])},250);
 }
 function startMissionVisual(){startVisualEvent()}
 function updateMissionVisual(){if(breachPulse)breachPulse.setRadius(8+(seconds%6)*1.3)}
@@ -366,15 +353,13 @@ function finishStorm(won){gameFinished=true;running=false;if(timer){clearInterva
 function tick(){
  if(!running)return;seconds++;updatePolders();
  if(selected&&selected.active){
-  const surge=(seconds%90)<25?0.0022:0.0007;
-  if(seconds<=pumpUntil)level=Math.max(-0.2,level-0.0014);
-  else if(seconds>repairUntil)level+=surge;
+  const surge=(seconds%90)<25?0.014:0.008;level=Math.min(2.8,level+surge);
   advanceFloodSimulation();drawWater();
   if(floodedAreaKm2>=20||level>=0.55||protectedTargets.filter(t=>t.status==='flooded').length>=2){finishStorm(false);$('status').textContent=protectedTargets.filter(t=>t.status==='flooded').length>=2?'ПОРАЖЕНИЕ: затоплены два защищаемых населённых пункта.':'Защитная линия не справилась с водой.';render();return}
   if(seconds>=300){finishStorm(true);render();return}
  }
  if(mission1953&&!mission1953.finished){
-  level=Math.min(3.5,level+(mission1953.reinforced?.006:.012));
+  level=Math.min(3.5,level+(mission1953.reinforced?.014:.018));
   advanceFloodSimulation();drawWater();updateMissionVisual();
  }
  if(mission1953&&!mission1953.finished&&seconds>=currentMissionProfile().duration){
@@ -500,8 +485,8 @@ $('start').onclick=()=>{
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
  if(!running){level=-0.2;if(!initializeFloodSimulation()){$('status').textContent='Не удалось найти действительную ячейку AHN у выбранного пролома.';return}running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?(simulationSourceIsCoast?'Пролом открыт. Источник привязан к береговой ячейке на границе AHN no-data; поток распространяется по рельефу.':'Внимание: береговая граница no-data не найдена, использована ближайшая пригодная ячейка AHN.'):'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
-$('repair').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём воды остановлен на 20 секунд.'};
-$('pump').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;level=Math.max(-0.2,level-.04);pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: уровень воды снижается 25 секунд.'};
+$('repair').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;breachClosed=true;repairUntil=seconds;drawWater();render();$('status').textContent='Пролом закрыт: поступление новой воды прекращено. Уже затопленная территория остаётся мокрой.'};
+$('pump').onclick=()=>{if(!running||gameFinished){$('status').textContent='Сначала начни шторм.';return}if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: откачивает воду с суши 25 секунд; уровень моря не меняется.'};
 $('defendTarget').onclick=()=>{if(!running||gameFinished||!selectedTarget)return;if(funds<30){$('status').textContent='Недостаточно ресурсов.';return}funds-=30;selectedTarget.defenseUntil=seconds+75;selectedTarget.protectionLevel=Math.max(level,selectedTarget.protectionLevel)+.18;drawWater();render();updateTargetsStatus();$('status').textContent='Аварийная бригада направлена в '+selectedTarget.name+'. Защита действует 75 секунд.'};
 $('evacuateTarget').onclick=()=>{if(!running||gameFinished||!selectedTarget||selectedTarget.everFlooded)return;if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}const before=selectedTarget.evacuated;selectedTarget.evacuated=Math.min(100,before+35);const moved=Math.round(selectedTarget.population*(selectedTarget.evacuated-before)/100);totalEvacuated+=moved;funds-=20;render();updateTargetsStatus();$('status').textContent='Из '+selectedTarget.name+' вывезено '+moved.toLocaleString('ru-RU')+' жителей. Эвакуация: '+selectedTarget.evacuated+'%.'};
 $('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();clearSourceMarker();resetProtectedTargets();seconds=0;level=0;funds=100;selected=null;terrainNoData=null;mission1953=null;floodSourceIndex=null;waterDepth=null;flowDelta=null;wetCells=new Set();simulationReady=false;simulationSourceHeight=null;simulationSourceIsCoast=false;floodMask=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;$('scenarioPanel').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
