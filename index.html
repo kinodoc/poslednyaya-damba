@@ -68,6 +68,17 @@ const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomU
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
+function cellKey(c,r){return r*geoImage.getWidth()+c}
+function rasterLine(a,b){
+ let x0=a.col,y0=a.row,x1=b.col,y1=b.row,dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy,out=[];
+ while(true){if(x0>=0&&y0>=0&&x0<geoImage.getWidth()&&y0<geoImage.getHeight())out.push(cellKey(x0,y0));if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx}if(e2<=dx){err+=dx;y0+=sy}}
+ return out
+}
+function cancelDamBuild(){
+ buildMode=false;damStart=null;
+ if(damStartMarker){map.removeLayer(damStartMarker);damStartMarker=null}
+ $('buildDam').classList.remove('main')
+}
 function inLake(x,y){let inside=false;for(let i=0,j=lakeRD.length-1;i<lakeRD.length;j=i++){const a=lakeRD[i],b=lakeRD[j];if(((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
 function floodFromLake(waterLevel){const w=geoImage.getWidth(),h=geoImage.getHeight(),mask=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;const valid=i=>!blockedCells.has(i)&&Number.isFinite(grid[i])&&grid[i]<1e20&&grid[i]<=waterLevel;for(let r=0;r<h;r++){for(let c=0;c<w;c++){const i=r*w+c;if(!valid(i))continue;const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);if(inLake(x-resolution[0],y)||inLake(x+resolution[0],y)||inLake(x,y-resolution[1])||inLake(x,y+resolution[1])){mask[i]=1;queue[tail++]=i}}}
 while(head<tail){const p=queue[head++],c=p%w,r=(p/w)|0,ns=[c>0?p-1:-1,c<w-1?p+1:-1,r>0?p-w:-1,r<h-1?p+w:-1];for(const q of ns){if(q<0||mask[q]||!valid(q))continue;mask[q]=1;queue[tail++]=q}}return mask}
@@ -106,6 +117,28 @@ function stopVisualEvent(){
 function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds}
 function tick(){if(!running)return;seconds++;if(selected&&selected.active){level+=.002;drawWater()}render();if(funds>0&&seconds%10===0)funds--;if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.'}
 $('load').onclick=loadTerrain;
+
+$('buildDam').onclick=()=>{
+ if(!grid){$('status').textContent='Сначала загрузи рельеф AHN.';return}
+ if(buildMode){cancelDamBuild();$('status').textContent='Строительство дамбы отменено.';return}
+ buildMode=true;damStart=null;$('buildDam').classList.add('main');
+ $('status').textContent='Отметь на карте начало и конец дамбы. Шаг расчётной сетки — около 100 м.';
+};
+map.on('click',e=>{
+ if(!buildMode||!grid)return;
+ const p=indexAt(e.latlng.lat,e.latlng.lng);
+ if(p.col<0||p.row<0||p.col>=geoImage.getWidth()||p.row>=geoImage.getHeight()){$('status').textContent='Точка вне загруженного рельефа.';return}
+ if(!damStart){damStart={...p,latlng:e.latlng};damStartMarker=L.circleMarker(e.latlng,{radius:6,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map);$('status').textContent='Начало отмечено. Укажи конец дамбы.';return}
+ const cells=rasterLine(damStart,p).filter(i=>!blockedCells.has(i)),cost=Math.max(1,Math.ceil(cells.length/8));
+ if(!cells.length){cancelDamBuild();$('status').textContent='Дамба на этом участке уже построена.';return}
+ if(funds<cost){$('status').textContent='Нужно ресурсов: '+cost+'.';return}
+ cells.forEach(i=>blockedCells.add(i));
+ const line=L.polyline([damStart.latlng,e.latlng],{color:'#e8bd55',weight:5,opacity:.95}).addTo(map);
+ line.bindTooltip('Игровая дамба · '+(cells.length*.1).toFixed(1)+' км');damLayers.push(line);
+ funds-=cost;cancelDamBuild();render();if(selected&&selected.active)drawWater();
+ $('status').textContent='Дамба построена. '+(cells.length*.1).toFixed(1)+' км; стоимость '+cost+' ресурсов. Перекрытые ячейки исключены из распространения воды.';
+});
+
 $('start').onclick=()=>{if(!grid){$('status').textContent='Сначала загрузи рельеф.';return}if(!selected){$('status').textContent='Выбери точку прорыва на карте.';return}if(!running){level=-0.2;running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Прорыв у Breezanddijk открыт: вода из Вадденского моря поступает в IJsselmeer.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;clearInterval(timer);stopVisualEvent();$('status').textContent='Пауза.'};
 $('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);drawWater();render();$('status').textContent='Условный ремонт: скорость подъёма воды остановлена на короткое время.'};
