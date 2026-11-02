@@ -14,7 +14,7 @@ header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding
 </style></head><body><div id="app">
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
-<div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span>ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span>УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
+<div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span id="waterLabel">ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span id="levelLabel">УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
 <div id="objective" style="font-size:11px;color:#f2d28a;margin:0 0 5px">Цель: продержаться 5 минут и не допустить затопления более 20 км².</div><div id="targetsStatus" style="font-size:10px;color:#a9c8d3;margin:0 0 8px">Защищаемые районы: Ден-Овер · Маккум · Медемблик · Энкхёйзен</div>
 <div id="status">Нажми на любую отмеченную точку: она выберется сразу. Для поддерживаемого сценария рельеф AHN загружается автоматически.</div>
 <div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="pump" disabled>💧 Откачать −25</button><button id="defendTarget" disabled>🛡 Защитить район −30</button><button id="evacuateTarget" disabled>🚨 Эвакуация −20</button><button id="buildDam" disabled>＋ Построить дамбу</button><button id="buildPolder" disabled>▱ Новый польдер</button><button id="drainPolder" disabled>💧 Осушить −30</button><button id="farmPolder" disabled>🌾 Сельхозугодья</button><button id="settlePolder" disabled>🏘 Поселение</button><button id="reset">↺ Сброс</button></div>
@@ -104,7 +104,7 @@ function scenarioAction(type,cost){
  if(type==='ship')mission1953.ship=true;
  if(type==='reinforce')mission1953.reinforced=true;
  mission1953.result=p.results[index];
- funds-=cost;render();updateScenarioMission();$('status').textContent=mission1953.result;
+ funds-=cost;render();updateScenarioMission();showMissionAction(type);updateMissionVisual();$('status').textContent=mission1953.result;
 }
 
 const lakeRing=[[53.065,5.34],[53.02,5.28],[52.96,5.18],[52.91,5.05],[52.82,5.02],[52.72,5.10],[52.69,5.28],[52.73,5.43],[52.84,5.52],[52.96,5.50],[53.04,5.43]];
@@ -124,16 +124,16 @@ window.choose=i=>{
  grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;
  $('pause').disabled=true;
  $('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;$('load').disabled=false;
- selected=sites[i];map.closePopup();
+ selected=sites[i];map.closePopup();map.flyTo([selected.lat,selected.lon],10,{duration:.8});markers.forEach((m,j)=>m.setStyle({radius:sites[j].active?9:7,weight:2}));markers[i].setStyle({radius:12,weight:4});
  if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}
- $('water').textContent='—';$('level').textContent='—';
+ $('water').textContent='—';$('level').textContent='—';$('waterLabel').textContent='ЗАТОПЛЕННАЯ ПЛОЩАДЬ*';$('levelLabel').textContent='УРОВЕНЬ ВОДЫ NAP';
  $('scenarioPanel').style.display='none';
  if(isMissionSite()){
   const profile=currentMissionProfile();
   $('objective').textContent=profile.objective;
   $('scenarioPanel').style.display='block';mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};updateScenarioMission();
   $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('buildPolder').disabled=true;$('load').disabled=true;
-  $('status').textContent='Выбран сценарий: '+profile.title+' · '+selected.name+'. Нажми «Начать».';
+  $('waterLabel').textContent='ЗОНА ВОЗДЕЙСТВИЯ*';$('levelLabel').textContent='УСЛОВНЫЙ УРОВЕНЬ';$('status').textContent='Выбран сценарий: '+profile.title+' · '+selected.name+'. Нажми «Начать». На карте появится условная зона воздействия.';
  }else if(selected.active){
   $('start').disabled=true;
   $('status').textContent='Выбрана точка: '+selected.name+'. Автоматически загружаю рельеф AHN…';
@@ -144,7 +144,7 @@ window.choose=i=>{
   $('status').textContent='Точка выбрана: '+selected.name+'. Для этого района пока нет подключённой модели затопления; запуск отключён, чтобы не показывать фиктивную симуляцию.';
  }
 };
-const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<span style="color:#d9433c">●</span> Afsluitdijk — AHN-сценарии<br><span style="color:#d88924">●</span> Delta Works — миссии<br><span style="color:#8b6bb1">●</span> Исторические миссии<br><span style="color:#168fc0">■</span> Расчётная вода<br><span style="color:#174e68">●</span> Город';return d};legend.addTo(map);
+const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — условное затопление миссии<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
@@ -296,7 +296,7 @@ async function loadTerrain(){
  }
 }
 
-let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null;
+let stormLayer=null,surgeLayers=[],eventTimer=null,eventPhase=0,breachPulse=null,missionImpactLayer=null,missionWaveLayers=[],missionActionMarkers=[];
 function startVisualEvent(){
  stopVisualEvent();eventPhase=0;
  const p=[selected.lat,selected.lon];
@@ -312,11 +312,43 @@ function startVisualEvent(){
   breachPulse.setStyle({fillOpacity:.35+((eventPhase%8)/16),color:eventPhase%2?'#fff0a0':'#ff9b45'});
  },250);
 }
+function startMissionVisual(){
+ stopVisualEvent();
+ const p=[selected.lat,selected.lon];
+ missionImpactLayer=L.circle(p,{radius:700,color:'#168fc0',weight:2,opacity:.95,fillColor:'#168fc0',fillOpacity:.22,interactive:false}).addTo(map);
+ missionWaveLayers=[1.25,1.65,2.05].map((scale,i)=>L.circle(p,{radius:700*scale,color:'#56c8ed',weight:2,opacity:.72-i*.12,fill:false,dashArray:'8 7',interactive:false}).addTo(map));
+ stormLayer=L.marker([p[0]+.18,p[1]-.28],{interactive:false,icon:L.divIcon({className:'storm-icon',html:'<div style="font-size:30px;filter:drop-shadow(0 2px 3px #123)">🌧️</div>',iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map);
+ breachPulse=L.circleMarker(p,{radius:10,color:'#fff0a0',weight:3,fillColor:'#168fc0',fillOpacity:.9,interactive:false}).addTo(map);
+ updateMissionVisual();
+}
+function updateMissionVisual(){
+ if(!missionImpactLayer||!selected||!mission1953)return;
+ const radius=700+seconds*48*(mission1953.reinforced?.55:1);
+ missionImpactLayer.setRadius(radius);
+ missionImpactLayer.setStyle({fillOpacity:mission1953.reinforced?.13:.22,color:mission1953.reinforced?'#e9b34b':'#168fc0'});
+ missionWaveLayers.forEach((layer,i)=>{layer.setRadius(radius*(1.25+i*.4));layer.setStyle({opacity:.68-i*.14})});
+ if(stormLayer)stormLayer.setLatLng([selected.lat+.18-Math.min(.16,seconds*.0008),selected.lon-.28+Math.min(.24,seconds*.0012)]);
+ if(breachPulse)breachPulse.setRadius(10+(seconds%5)*1.1);
+ const area=Math.PI*radius*radius/1e6;
+ $('water').textContent=area.toFixed(1)+' км²';
+ $('level').textContent=Math.max(0,level).toFixed(2)+' м*';
+}
+function showMissionAction(type){
+ if(!selected)return;
+ const icons={evacuate:'🚶',ship:'🚤',reinforce:'🛠️'};
+ const offsets={evacuate:[.025,.018],ship:[-.018,-.025],reinforce:[-.025,.025]};
+ const o=offsets[type];
+ const marker=L.marker([selected.lat+o[0],selected.lon+o[1]],{interactive:false,icon:L.divIcon({className:'mission-action-icon',html:'<div style="font-size:25px;filter:drop-shadow(0 1px 2px #123)">'+icons[type]+'</div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(map);
+ missionActionMarkers.push(marker);
+}
 function stopVisualEvent(){
  if(eventTimer)clearInterval(eventTimer);eventTimer=null;
  if(stormLayer){map.removeLayer(stormLayer);stormLayer=null}
  surgeLayers.forEach(x=>map.removeLayer(x));surgeLayers=[];
  if(breachPulse){map.removeLayer(breachPulse);breachPulse=null}
+ if(missionImpactLayer){map.removeLayer(missionImpactLayer);missionImpactLayer=null}
+ missionWaveLayers.forEach(x=>map.removeLayer(x));missionWaveLayers=[];
+ missionActionMarkers.forEach(x=>map.removeLayer(x));missionActionMarkers=[];
 }
 
 function updateObjective(){if(gameFinished)return;const progress=Math.min(100,seconds/300*100);$('objective').textContent=selected&&selected.scenario?currentMissionProfile().title+' · '+Math.floor(Math.min(100,seconds/currentMissionProfile().duration*100))+'%':'Цель: пережить шторм · '+Math.floor(progress)+'% · волна '+(Math.floor(seconds/90)+1)+'/4 · предел 20 км² · не потерять 2 района'+(pumpUntil>seconds?' · насос работает':'')+(repairUntil>seconds?' · укрепление держится':'')}
@@ -331,6 +363,10 @@ function tick(){
   drawWater();
   if(floodedAreaKm2>=20||level>=0.55||protectedTargets.filter(t=>t.status==='flooded').length>=2){finishStorm(false);$('status').textContent=protectedTargets.filter(t=>t.status==='flooded').length>=2?'ПОРАЖЕНИЕ: затоплены два защищаемых населённых пункта.':'Защитная линия не справилась с водой.';render();return}
   if(seconds>=300){finishStorm(true);render();return}
+ }
+ if(mission1953&&!mission1953.finished){
+  level=Math.min(3.5,level+(mission1953.reinforced?.006:.012));
+  updateMissionVisual();
  }
  if(mission1953&&!mission1953.finished&&seconds>=currentMissionProfile().duration){
   mission1953.finished=true;
@@ -347,10 +383,9 @@ function tick(){
   }
   if(income>0)funds+=income;
  }
- if(mission1953&&!mission1953.finished&&seconds%30===0){
-  const phase=Math.ceil(seconds/30);
+ if(mission1953&&!mission1953.finished&&seconds%15===0){
   const p=currentMissionProfile(),phaseNo=Math.min(p.phases.length,Math.ceil(seconds/(p.duration/p.phases.length)));
-  $('status').textContent='Фаза '+phaseNo+'/'+p.phases.length+' · '+p.phases[phaseNo-1]+' До завершения: '+(p.duration-seconds)+' сек.';
+  $('status').textContent='Фаза '+phaseNo+'/'+p.phases.length+' · '+p.phases[phaseNo-1]+' Зона воздействия: '+$('water').textContent+'.';
  }
  else if(seconds%60===0)$('status').textContent=selected&&selected.active?'Уровень воды растёт. Счёт идёт по AHN DTM; укрепляй участок.':'Штормовой фронт движется, нагонная волна подходит к берегу. Это визуальная реконструкция, не гидродинамический прогноз.';
  render();
@@ -449,7 +484,7 @@ $('start').onclick=()=>{
  if(isMissionSite()){
   if(mission1953&&mission1953.finished){$('status').textContent=mission1953.result+' Чтобы начать заново, выбери сценарий на карте ещё раз.';return}
   if(!mission1953)mission1953={evac:0,evacuated:false,ship:false,reinforced:false,finished:false,result:''};
-  if(!running){running=true;timer=setInterval(tick,1000);$('pause').disabled=false;$('status').textContent='Началась миссия: '+currentMissionProfile().title+'. Принимай решения до завершения шторма.'}
+  if(!running){running=true;level=-0.2;map.flyTo([selected.lat,selected.lon],10,{duration:1});startMissionVisual();timer=setInterval(tick,1000);$('pause').disabled=false;$('status').textContent='Началась миссия: '+currentMissionProfile().title+'. На карте синим показана условная зона воздействия; это игровая визуализация, не расчёт AHN.'}
   return;
  }
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
