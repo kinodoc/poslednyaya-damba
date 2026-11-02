@@ -319,7 +319,7 @@ async function loadTerrain(){
   }
  }catch(e){
   if(requestId!==terrainRequestId)return;
-  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось получить GeoTIFF AHN: '+e.message+'. Проверь доступность PDOK/CORS.');
+  console.error(e);$('status').textContent=timedOut?'PDOK не ответил за 45 секунд. Попробуй загрузить рельеф ещё раз.':((e.name==='AbortError'||e.name==='AbortSignal')?'Загрузка AHN отменена.':'Не удалось загрузить данные AHN/TOP10NL: '+e.message+'. Проверь доступность PDOK/CORS.');
   b.disabled=false;
  }finally{
   clearTimeout(timeoutId);
