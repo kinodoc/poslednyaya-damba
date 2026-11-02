@@ -191,7 +191,7 @@ function initializeFloodSimulation(){
  const source=coastSource>=0?coastSource:fallbackSource;
  if(source<0)return false;
  simulationSourceIsCoast=coastSource>=0;
- floodSourceIndex=source;simulationSourceHeight=grid[source];level=Math.max(level,simulationSourceHeight+.03);
+ floodSourceIndex=source;simulationSourceHeight=grid[source];level=simulationSourceHeight+.03;
  waterDepth[source]=.03;wetCells.add(source);simulationReady=true;return true;
 }
 function advanceFloodSimulation(){
