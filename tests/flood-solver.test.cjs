@@ -142,3 +142,7 @@ test('the inline browser script parses and every referenced UI id exists', () =>
   const references = new Set([...html.matchAll(/\$\(["']([^"']+)["']\)/g)].map(match => match[1]));
   for (const id of references) assert.ok(ids.has(id), 'missing UI element: ' + id);
 });
+
+test('static browser build does not call the CORS-blocked RWS API directly', () => {
+  assert.doesNotMatch(html, /ddapi20-waterwebservices\.rijkswaterstaat\.nl/);
+});
