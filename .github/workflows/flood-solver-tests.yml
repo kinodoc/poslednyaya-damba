@@ -1,0 +1,23 @@
+name: Flood solver regression tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feature/dynamic-ahn-flood-physics]
+
+permissions:
+  contents: read
+
+jobs:
+  flood-solver:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run flood solver regression tests
+        run: node --test tests/flood-solver.test.cjs
