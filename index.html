@@ -15,8 +15,9 @@ header{background:linear-gradient(110deg,#102f40,#0b202b 72%);color:#fff;padding
 <header><div><h1>ПОСЛЕДНЯЯ ДАМБА</h1><small>Нидерланды · Afsluitdijk · Дельта-проект</small></div><small>AHN DTM<br>ПРОТОТИП 0.5</small></header>
 <div id="map"></div><section class="panel">
 <div class="stats"><div class="stat"><b id="clock">00:00</b><span>ВРЕМЯ</span></div><div class="stat"><b id="water">—</b><span>ЗАТОПЛЕННАЯ ПЛОЩАДЬ*</span></div><div class="stat"><b id="level">—</b><span>УРОВЕНЬ ВОДЫ NAP</span></div><div class="stat"><b id="funds">100</b><span>РЕСУРСЫ</span></div></div>
+<div id="objective" style="font-size:11px;color:#f2d28a;margin:0 0 5px">Цель: продержаться 5 минут и не допустить затопления более 20 км².</div>
 <div id="status">Нажми на любую отмеченную точку: она выберется сразу. Для поддерживаемого сценария рельеф AHN загружается автоматически.</div>
-<div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="buildDam" disabled>＋ Построить дамбу</button><button id="reset">↺ Сброс</button></div>
+<div class="buttons"><button class="main" id="load">⛰ Загрузить рельеф AHN</button><button id="start" disabled>▶ Начать</button><button id="pause" disabled>Ⅱ Пауза</button><button id="repair" disabled>🛠 Укрепить −20</button><button id="pump" disabled>💧 Откачать −25</button><button id="buildDam" disabled>＋ Построить дамбу</button><button id="reset">↺ Сброс</button></div>
 <div id="history1953" style="display:none;margin-top:10px;padding:10px;border:1px solid #725c48;border-radius:10px;background:#30291f">
  <div style="font-weight:750;color:#ffd99b;margin-bottom:5px">СЦЕНАРИЙ · НОЧЬ 31 ЯНВАРЯ — 1 ФЕВРАЛЯ 1953</div>
  <div id="missionText" style="font-size:11px;line-height:1.45;color:#f0dfc8;margin-bottom:8px">Историческая реконструкция с альтернативными решениями игрока. Это не расчёт фактического затопления.</div>
@@ -69,7 +70,7 @@ const sites=[
 ];
 let selected=null,grid=null,geoImage=null,origin=null,resolution=null,extent=null,floodMask=null,waterOverlay=null,running=false,seconds=0,level=-0.2,funds=100,timer=null;
 let blockedCells=new Set(),damLayers=[],buildMode=false,damStart=null,damStartMarker=null;
-let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null;
+let mission1953=null,terrainRequestId=0,terrainAbortController=null,floodSourceIndex=null,repairUntil=0,sourceMarker=null,pumpUntil=0,floodedAreaKm2=0,gameFinished=false;
 function is1953(){return !!(selected&&selected.kind==='historic'&&selected.name.includes('1953'))}
 function updateMission1953(){
  if(!mission1953)return;
@@ -102,17 +103,17 @@ window.choose=i=>{
  if(timer){clearInterval(timer);timer=null}
  stopVisualEvent();
  clearBuiltDams();clearSourceMarker();
- seconds=0;level=-0.2;mission1953=null;floodSourceIndex=null;repairUntil=0;
+ seconds=0;level=-0.2;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;updateObjective();
  grid=null;geoImage=null;origin=null;resolution=null;extent=null;floodMask=null;
  $('pause').disabled=true;
- $('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
+ $('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;
  selected=sites[i];map.closePopup();
  if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}
  $('water').textContent='—';$('level').textContent='—';
  $('history1953').style.display='none';
  if(is1953()){
   $('history1953').style.display='block';$('missionText').textContent='Выбран исторический район наводнения 1953 года. Можно загрузить локальный фрагмент AHN, затем запустить игровую миссию.';
-  $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
+  $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
   $('status').textContent='Выбран район 1953 года: '+selected.name+'. Автоматически загружаю локальный рельеф AHN…';
   loadTerrain();
  }else if(selected.active){
@@ -184,7 +185,7 @@ function floodFromLake(waterLevel){
  return {mask,sourceIndex:source,sourceDistance:bestDistance,sourceHeight,count:tail}
 }
 function drawWater(){if(!grid||!selected)return;const flood=floodFromLake(level);floodMask=flood.mask;const w=geoImage.getWidth(),h=geoImage.getHeight(),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),im=ctx.createImageData(w,h);let count=0;for(let i=0;i<floodMask.length;i++){if(floodMask[i]){const p=i*4;im.data[p]=20;im.data[p+1]=157;im.data[p+2]=205;im.data[p+3]=115;count++}}ctx.putImageData(im,0,0);if(waterOverlay)map.removeLayer(waterOverlay);
-const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);$('water').textContent=(count*resolution[0]*Math.abs(resolution[1])/1e6).toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';
+const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
  if(flood.sourceIndex===null){clearSourceMarker();$('status').textContent='Не найдено действительных ячеек AHN в радиусе 1,5 км от точки прорыва со стороны IJsselmeer. Источник воды не создан.'}
  else{
   const col=flood.sourceIndex%w,row=(flood.sourceIndex/w)|0,x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
@@ -253,9 +254,9 @@ async function loadTerrain(){
   $('status').textContent='AHN загружен: '+regionLabel+' · '+geoImage.getWidth()+' × '+geoImage.getHeight()+' ячеек · шаг '+Math.abs(resolution[0]).toFixed(1)+' × '+Math.abs(resolution[1]).toFixed(1)+' м · действительных высот '+validCells.toLocaleString('ru-RU')+'. Для сценария 1953 рельеф пока справочный: гидрологическая модель Зеландии не подключена.';
   if(is1953()){
    // AHN здесь — справочный слой высот; модель затопления Зеландии ещё не реализована.
-   $('start').disabled=false;$('repair').disabled=true;$('buildDam').disabled=true;
+   $('start').disabled=false;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;
   }else{
-   $('start').disabled=false;$('repair').disabled=false;$('buildDam').disabled=false;
+   $('start').disabled=false;$('repair').disabled=false;$('pump').disabled=false;$('buildDam').disabled=false;
   }
   ahn.addTo(map);
   if(is1953())map.fitBounds([[selected.lat-0.32,selected.lon-0.52],[selected.lat+0.32,selected.lon+0.52]]);
@@ -293,10 +294,19 @@ function stopVisualEvent(){
  if(breachPulse){map.removeLayer(breachPulse);breachPulse=null}
 }
 
-function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds}
+function updateObjective(){if(gameFinished)return;const progress=Math.min(100,seconds/300*100);$('objective').textContent='Цель: пережить шторм · '+Math.floor(progress)+'% · предел затопления 20 км²'+(pumpUntil>seconds?' · насос работает':'')+(repairUntil>seconds?' · укрепление держится':'')}
+function render(){$('clock').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');$('funds').textContent=funds;updateObjective()}
+function finishStorm(won){gameFinished=true;running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('pause').disabled=true;$('start').disabled=true;$('status').textContent=won?'ПОБЕДА! Дамба выдержала шторм. Можно усложнить следующий заход.':'ПОРАЖЕНИЕ. Защитная линия не справилась с водой. Попробуй иначе распределить ресурсы.';$('objective').textContent=won?'Шторм пережит за 5 минут. Победа!':'Защитная линия прорвана. Игра окончена.'}
 function tick(){
  if(!running)return;seconds++;
- if(selected&&selected.active){if(seconds>repairUntil)level+=.002;drawWater()}
+ if(selected&&selected.active){
+  const surge=(seconds%90)<25?0.0022:0.0007;
+  if(seconds<=pumpUntil)level=Math.max(-0.2,level-0.0014);
+  else if(seconds>repairUntil)level+=surge;
+  drawWater();
+  if(floodedAreaKm2>=20||level>=0.55){finishStorm(false);render();return}
+  if(seconds>=300){finishStorm(true);render();return}
+ }
  if(mission1953&&!mission1953.finished&&seconds>=180){
   mission1953.finished=true;
   const score=mission1953.evac+(mission1953.ship?35:0)+(mission1953.reinforced?25:0);
@@ -350,7 +360,8 @@ $('start').onclick=()=>{
  if(!grid){$('status').textContent='Для расчёта AHN сначала загрузи рельеф.';return}
  if(!running){running=true;timer=setInterval(tick,1000);startVisualEvent();$('pause').disabled=false;$('status').textContent=selected.active?'Условный прорыв у Breezanddijk открыт. Вода распространяется от ближайшей ячейки AHN по связанным ячейкам ниже уровня воды; это упрощённая игровая модель.':'Запущена визуальная модель шторма и нагонной волны у выбранного участка. Расчёт площади затопления для этого района пока не подключён.';if(selected.active)drawWater()}};
 $('pause').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();$('status').textContent='Пауза.'};
-$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём уровня воды приостановлен на 20 секунд.'};
-$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();clearSourceMarker();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;$('history1953').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
+$('repair').onclick=()=>{if(funds<20){$('status').textContent='Недостаточно ресурсов.';return}funds-=20;level=Math.max(-0.2,level-.05);repairUntil=Math.max(repairUntil,seconds+20);drawWater();render();$('status').textContent='Участок укреплён: подъём воды остановлен на 20 секунд.'};
+$('pump').onclick=()=>{if(funds<25){$('status').textContent='Недостаточно ресурсов.';return}funds-=25;level=Math.max(-0.2,level-.04);pumpUntil=Math.max(pumpUntil,seconds+25);drawWater();render();$('status').textContent='Насос включён: уровень воды снижается 25 секунд.'};
+$('reset').onclick=()=>{running=false;if(timer){clearInterval(timer);timer=null}stopVisualEvent();terrainRequestId++;if(terrainAbortController){terrainAbortController.abort();terrainAbortController=null}clearBuiltDams();clearSourceMarker();seconds=0;level=0;funds=100;selected=null;mission1953=null;floodSourceIndex=null;repairUntil=0;pumpUntil=0;floodedAreaKm2=0;gameFinished=false;$('history1953').style.display='none';if(waterOverlay){map.removeLayer(waterOverlay);waterOverlay=null}$('water').textContent='—';$('level').textContent='—';$('start').disabled=true;$('pause').disabled=true;$('repair').disabled=true;$('pump').disabled=true;$('buildDam').disabled=true;$('load').disabled=false;render();$('status').textContent=grid?'Рельеф загружен. Выбери точку прорыва.':'Загрузи цифровую модель рельефа AHN.'};
 render();
 </script></body></html>
