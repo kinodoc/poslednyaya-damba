@@ -144,7 +144,8 @@ window.choose=i=>{
 };
 const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — затопленные ячейки AHN<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
-function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
+function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((y-origin[1])/resolution[1]);return {col,row}}
+function cellCenterRD(col,row){return [origin[0]+(col+.5)*resolution[0],origin[1]+(row+.5)*resolution[1]]}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
 function cellKey(c,r){return r*geoImage.getWidth()+c}
 function validTerrainHeight(z){return Number.isFinite(z)&&z<1e20&&(terrainNoData===null||z!==terrainNoData)}
@@ -179,7 +180,7 @@ function initializeFloodSimulation(){
  const valid=validTerrainHeight;
  for(let row=1;row<h-1;row++)for(let col=1;col<w-1;col++){
   const i=row*w+col,z=grid[i];if(blockedCells.has(i)||polderCells.has(i)||!valid(z))continue;
-  const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);
+  const [x,y]=cellCenterRD(col,row);
   // RD northing grows north. For Afsluitdijk, search on the Waddenzee side.
   if(selected.active&&y<=breachY)continue;
   const d=Math.hypot(x-breachX,y-breachY);if(d>4000)continue;
@@ -233,7 +234,7 @@ function drawWater(){
  const corners=[proj4('EPSG:28992','EPSG:4326',[extent[0],extent[3]]),proj4('EPSG:28992','EPSG:4326',[extent[2],extent[1]])];
  waterOverlay=L.imageOverlay(canvas.toDataURL(),[[corners[0][1],corners[0][0]],[corners[1][1],corners[1][0]]],{opacity:1,interactive:false}).addTo(map);
  floodedAreaKm2=count*resolution[0]*Math.abs(resolution[1])/1e6;$('water').textContent=floodedAreaKm2.toFixed(1)+' км²';$('level').textContent=level.toFixed(2)+' м';updateObjective();
- const col=floodSourceIndex%w,row=(floodSourceIndex/w)|0,x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]),ll=proj4('EPSG:28992','EPSG:4326',[x,y]);
+ const col=floodSourceIndex%w,row=(floodSourceIndex/w)|0,[x,y]=cellCenterRD(col,row),ll=proj4('EPSG:28992','EPSG:4326',[x,y]);
  const breach=rd(selected.lat,selected.lon),label='Пролом · '+(simulationSourceIsCoast?'береговая ячейка у no-data':'приближённая ячейка AHN')+' · '+Math.round(Math.hypot(x-breach[0],y-breach[1]))+' м · '+simulationSourceHeight.toFixed(2)+' м NAP';
  if(sourceMarker){sourceMarker.setLatLng([ll[1],ll[0]]);sourceMarker.setTooltipContent(label)}else sourceMarker=L.circleMarker([ll[1],ll[0]],{radius:7,color:'#fff',weight:2,fillColor:'#f4c542',fillOpacity:1}).addTo(map).bindTooltip(label);
  $('status').textContent='Динамический расчёт AHN: мокрых ячеек '+wetCells.size.toLocaleString('ru-RU')+' · затоплено '+count.toLocaleString('ru-RU')+'. Поток зависит от рельефа и перепада уровня воды.';
@@ -283,6 +284,9 @@ async function loadTerrain(){
    const validNextHeight=z=>Number.isFinite(z)&&z<1e20&&(nextNoData===null||z!==nextNoData);
   if(requestId!==terrainRequestId)return;
   const nextOrigin=nextImage.getOrigin(),nextResolution=nextImage.getResolution(),nextExtent=nextImage.getBoundingBox();
+   const geoKeys=typeof nextImage.getGeoKeys==='function'?nextImage.getGeoKeys():nextImage.geoKeys||{};
+   if(typeof nextImage.pixelIsArea!=='function'||!nextImage.pixelIsArea()||geoKeys.GTRasterTypeGeoKey!==1)throw Error('GeoTIFF использует PixelIsPoint или не указывает PixelIsArea; текущая сеточная привязка рассчитана на ячейки-площади.');
+   if(geoKeys.ProjectedCSTypeGeoKey!==undefined&&geoKeys.ProjectedCSTypeGeoKey!==28992)throw Error('Неожиданная проекция GeoTIFF: ожидался EPSG:28992, получено '+geoKeys.ProjectedCSTypeGeoKey+'.');
   const width=nextImage.getWidth(),height=nextImage.getHeight();
   if(width!==n||height!==n)throw Error('Неверный размер растра: '+width+' × '+height+', ожидалось '+n+' × '+n);
   if(nextGrid.length!==width*height)throw Error('Размер массива высот не совпадает с размером растра');
@@ -420,7 +424,7 @@ function finishPolder(){
   line.forEach(k=>boundary.add(k));
  }
  let sum=0,high=0;
- for(let row=0;row<h;row++)for(let col=0;col<w;col++){const i=row*w+col;if(boundary.has(i)||blockedCells.has(i)||polderCells.has(i))continue;const z=grid[i];if(!validTerrainHeight(z))continue;const x=origin[0]+(col+.5)*resolution[0],y=origin[1]-(row+.5)*Math.abs(resolution[1]);if(pointInPolygon(x,y,ring)){cells.push(i);sum+=z;if(z>2.5)high++}}
+ for(let row=0;row<h;row++)for(let col=0;col<w;col++){const i=row*w+col;if(boundary.has(i)||blockedCells.has(i)||polderCells.has(i))continue;const z=grid[i];if(!validTerrainHeight(z))continue;const [x,y]=cellCenterRD(col,row);if(pointInPolygon(x,y,ring)){cells.push(i);sum+=z;if(z>2.5)high++}}
  const area=cells.length*resolution[0]*Math.abs(resolution[1])/1e6,avg=sum/Math.max(1,cells.length),perimeter=ring.reduce((v,a,i)=>v+Math.hypot(a[0]-ring[(i+1)%ring.length][0],a[1]-ring[(i+1)%ring.length][1]),0)/1000,cost=25+Math.ceil(area*2)+Math.ceil(perimeter);
  if(area<0.15||cells.length<15){$('status').textContent='Участок слишком мал или на нём недостаточно данных AHN.';cancelPolderBuild();return}
  if(avg>2.5||high/cells.length>.35){$('status').textContent='Место плохо подходит для польдера: участок слишком высокий.';cancelPolderBuild();return}
