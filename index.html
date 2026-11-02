@@ -141,7 +141,7 @@ window.choose=i=>{
   loadTerrain();
  }
 };
-const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — условное затопление миссии<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
+const legend=L.control({position:'bottomleft'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>ИГРОВЫЕ ТОЧКИ</b><br><span style="color:#d9433c">●</span> Красные — Afsluitdijk, AHN<br><span style="color:#d88924">●</span> Оранжевые — Delta Works<br><span style="color:#8b6bb1">●</span> Фиолетовые — исторические миссии<br><span style="color:#168fc0">■</span> Синяя зона — затопленные ячейки AHN<br><span style="color:#174e68">●</span> Города';return d};legend.addTo(map);
 function rd(lat,lon){return proj4('EPSG:4326','EPSG:28992',[lon,lat])}
 function indexAt(lat,lon){const [x,y]=rd(lat,lon);const col=Math.floor((x-origin[0])/resolution[0]);const row=Math.floor((origin[1]-y)/Math.abs(resolution[1]));return {col,row}}
 function cellHeight(c,r){if(c<0||r<0||c>=geoImage.getWidth()||r>=geoImage.getHeight())return NaN;return grid[r*geoImage.getWidth()+c]}
