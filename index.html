@@ -155,6 +155,9 @@ function floodFromLake(waterLevel){
    const i=r*w+c;
    if(blockedCells.has(i)||!Number.isFinite(grid[i])||grid[i]>=1e20)continue;
    const x=origin[0]+(c+.5)*resolution[0],y=origin[1]-(r+.5)*Math.abs(resolution[1]);
+   // Breezanddijk: IJsselmeer lies south of the Afsluitdijk (lower RD Y).
+   // Exclude the Wadden Sea side when selecting the flood source.
+   if(y>=breachY)continue;
    const distance=Math.hypot(x-breachX,y-breachY);
    if(distance<best){best=distance;bestDistance=distance;source=i}
   }
