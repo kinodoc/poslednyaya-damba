@@ -377,14 +377,18 @@ async function fetchRwsWaterLevel(station){
   const data=await response.json(),series=Array.isArray(data.WaarnemingenLijst)?data.WaarnemingenLijst:[];
   const candidates=[];
   for(const item of series){
-   const meta=item.AquoMetadata||{},unit=String(meta.Eenheid&&meta.Eenheid.Code||'').toUpperCase(),datum=String(meta.Hoedanigheid&&meta.Hoedanigheid.Code||'').toUpperCase(),process=String(meta.ProcesType||'').toLowerCase();
+   const meta=item.AquoMetadata||{},unit=String(meta.Eenheid&&meta.Eenheid.Code||'').toUpperCase(),process=String(meta.ProcesType||'').toLowerCase();
    if(process&&process!=='meting')continue;
-   if(datum!=='NAP')continue;
    if(!['CM','M'].includes(unit))continue;
    for(const reading of (item.MetingenLijst||[])){
+    const observationMeta=reading.WaarnemingMetadata||{};
+    const referenceLevels=Array.isArray(observationMeta.ReferentievlakLijst)?observationMeta.ReferentievlakLijst:[];
+    const datum=referenceLevels.map(x=>String(x&&x.Code||x||'').toUpperCase());
+    if(!datum.includes('NAP'))continue;
     const raw=reading.Meetwaarde&&reading.Meetwaarde.Waarde_Numeriek,value=Number(raw),time=Date.parse(reading.Tijdstip);
-    const quality=String(reading.WaarnemingMetadata&&reading.WaarnemingMetadata.Kwaliteitswaardecode||'');
-    if(!Number.isFinite(value)||!Number.isFinite(time)||!['00','10','20','25','30','40'].includes(quality))continue;
+    const qualityValues=Array.isArray(observationMeta.KwaliteitswaardecodeLijst)?observationMeta.KwaliteitswaardecodeLijst:[observationMeta.Kwaliteitswaardecode];
+    const quality=qualityValues.map(x=>String(x&&x.Code||x||'')).find(x=>['00','10','20','25','30','40'].includes(x))||'';
+    if(!Number.isFinite(value)||!Number.isFinite(time)||!quality)continue;
     if(!candidates.length||time>candidates[0].time)candidates.splice(0,candidates.length,{value:unit==='CM'?value/100:value,time,quality,unit,datum});
     else if(time===candidates[0].time)candidates.push({value:unit==='CM'?value/100:value,time,quality,unit,datum});
    }
