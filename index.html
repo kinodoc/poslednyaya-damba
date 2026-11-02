@@ -325,6 +325,14 @@ function tick(){
   updateMission1953();$('status').textContent=mission1953.result;running=false;clearInterval(timer);timer=null;$('pause').disabled=true;
  }
  if(funds>0&&seconds%10===0)funds--;
+ if(seconds%30===0){
+  let income=0;
+  for(const p of polders)if(p.drained&&p.use){
+   const rate=p.use==='farm'?3:4;
+   income+=Math.max(1,Math.ceil(p.area*rate));
+  }
+  if(income>0)funds+=income;
+ }
  if(mission1953&&!mission1953.finished&&seconds%30===0){
   const phase=Math.ceil(seconds/30);
   const phases=['Шторм достигает побережья Зеландии.','Первые дамбы не выдерживают нагонной воды.','Вода распространяется по низким польдерам.','Прилив достигает исторического максимума около 03:24.','Воскресенье: в сценарии развивается вторая волна.','Последний этап: оцениваем эвакуацию и аварийные работы.'];
@@ -380,8 +388,9 @@ function setPolderUse(kind){
  const p=selectedPolder;p.use=kind;p.layer.setStyle(kind==='farm'?{color:'#b5a34b',fillColor:'#b5a34b',fillOpacity:.42}:{color:'#d5d2c8',fillColor:'#b7a58a',fillOpacity:.48});
  const center=p.layer.getBounds().getCenter(),icon=kind==='farm'?'🌾':'🏘';
  p.marker=L.marker(center,{interactive:false,icon:L.divIcon({className:'polder-use',html:'<div style="font-size:23px;text-shadow:0 1px 3px #fff">'+icon+'</div>',iconSize:[28,28],iconAnchor:[14,14]})}).addTo(map);
- p.layer.setTooltipContent((kind==='farm'?'Сельхозугодья':'Новое поселение')+' · '+p.area.toFixed(1)+' км²');
- $('status').textContent=kind==='farm'?'Новая земля отведена под сельское хозяйство.':'На осушенной земле основано новое поселение.';updatePolderButtons();
+ const income=Math.max(1,Math.ceil(p.area*(kind==='farm'?3:4)));
+ p.layer.setTooltipContent((kind==='farm'?'Сельхозугодья':'Новое поселение')+' · '+p.area.toFixed(1)+' км² · +'+income+' ресурсов / 30 сек.');
+ $('status').textContent=(kind==='farm'?'Новая земля отведена под сельское хозяйство.':'На осушенной земле основано новое поселение.')+' Доход: +'+income+' ресурсов каждые 30 секунд.';updatePolderButtons();
 }
 $('buildPolder').onclick=()=>{
  if(!grid){$('status').textContent='Сначала загрузи рельеф AHN.';return}
