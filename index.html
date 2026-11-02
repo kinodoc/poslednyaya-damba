@@ -369,7 +369,7 @@ async function fetchRwsWaterLevel(station){
  try{
   const response=await fetch('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenLaatsteWaarnemingen',{
    method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Accept:'application/json'},
-   body:JSON.stringify({LocatieLijst:[{Code:station.code}],AquoPlusWaarnemingMetadataLijst:[{AquoMetadata:{Compartiment:{Code:'OW'},Grootheid:{Code:'WATHTE'}}}]})
+   body:JSON.stringify({LocatieLijst:[{Code:station.code}],AquoPlusWaarnemingMetadataLijst:[{AquoMetadata:{Compartiment:{Code:'OW'},Grootheid:{Code:'WATHTE'},ProcesType:'meting'}}]})
   });
   if(!response.ok)throw Error('последние измерения RWS: HTTP '+response.status);
   const data=await response.json(),series=Array.isArray(data.WaarnemingenLijst)?data.WaarnemingenLijst:[];
